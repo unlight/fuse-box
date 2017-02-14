@@ -13,7 +13,7 @@ FuseBox loves __typescript__, and does not require any additional configuration.
 
 It is packed with features, and unfolds limitless possibilities of extending the API.
 
-Join [gitter channel](https://gitter.im/fusebox-bundler/Lobb), we are active! / View on [github](https://github.com/fuse-box/fuse-box) / Submit an [issue](https://github.com/fuse-box/fuse-box/issues/new) / Contribute to this [documentation](https://github.com/fuse-box/fuse-box/tree/master/docs)
+Join [gitter channel](https://gitter.im/fusebox-bundler/Lobby), we are active! / View on [github](https://github.com/fuse-box/fuse-box) / Submit an [issue](https://github.com/fuse-box/fuse-box/issues/new) / Contribute to this [documentation](https://github.com/fuse-box/fuse-box/tree/master/docs)
 
 
 ## Installation
@@ -37,7 +37,7 @@ You have an npm library in mind? You can bundle it without any extra configurati
 
 __Typescript__! Oh! We love typescript. You know what you need to do, to start transpiling and bundling typescript at the same time? `Change .js to .ts` [Are you ready?](https://github.com/fuse-box/angular2-example) 
 
-FuseBox will take care of __ALL__ nodejs depedendencies. We offer a comprehensive list of nodejs modules for browser out of the box. No worries, no matter what are you trying to bundle. It will work. 
+FuseBox will take care of __ALL__ nodejs dependencies. We offer a comprehensive list of nodejs modules for browser out of the box. No worries, no matter what are you trying to bundle. It will work. 
 
 There is nothing that cannot be fused. Create a 3 liner config and bundle some heavy project! Do conventional import statements, use shared bundles, hack API, create crazy plugins!
 

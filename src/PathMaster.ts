@@ -5,7 +5,12 @@ import * as path from "path";
 import * as fs from "fs";
 import { Config } from "./Config";
 
+/**
+ * If a import url isn't relative
+ * and only has ascii + @ in the name it is considered a node module
+ */
 const NODE_MODULE = /^([a-z@].*)$/;
+
 export interface INodeModuleRequire {
     name: string;
     target?: string;
@@ -35,8 +40,16 @@ export interface IPackageInformation {
     customBelongsTo?: string;
 }
 
+/**
+ * Manages the allowed extensions e.g. 
+ * should user be allowed to do `require('./foo.ts')`
+ */
 export class AllowedExtenstions {
+    /** 
+     * Users are allowed to require files with these extensions by default
+     **/
     public static list: Set<string> = new Set([".js", ".ts", ".tsx", ".json", ".xml", ".css", ".html"]);
+
     public static add(name: string) {
         if (!this.list.has(name)) {
             this.list.add(name);
@@ -312,14 +325,16 @@ export class PathMaster {
         let localLib = path.join(Config.LOCAL_LIBS, name);
         let modulePath = path.join(Config.NODE_MODULES_DIR, name);
 
-        if (fs.existsSync(localLib)) {
-            return readMainFile(localLib, false);
-        }
+
         if (this.context.customModulesFolder) {
             let customFolder = path.join(this.context.customModulesFolder, name);
             if (fs.existsSync(customFolder)) {
                 return readMainFile(customFolder, false);
             }
+        }
+
+        if (fs.existsSync(localLib)) {
+            return readMainFile(localLib, false);
         }
 
         if (this.rootPackagePath) {// handle a conflicting library

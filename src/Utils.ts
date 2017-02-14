@@ -1,6 +1,6 @@
 import * as path from "path";
+import * as fs from 'fs';
 const appRoot = require("app-root-path");
-
 const mkdirp = require("mkdirp");
 
 const MBLACKLIST = [
@@ -25,13 +25,19 @@ export function parseQuery(qstr) {
     }
     return query;
 }
+
+/**
+ * Does two things:
+ * - If a relative path is given,
+ *  it is assumed to be relative to appRoot and is then made absolute
+ * - Ensures that the directory containing the userPath exits (creates it if needed)
+ */
 export function ensureUserPath(userPath: string) {
     if (!path.isAbsolute(userPath)) {
         userPath = path.join(appRoot.path, userPath);
     }
     let dir = path.dirname(userPath);
     mkdirp.sync(dir);
-
     return userPath;
 }
 
@@ -78,4 +84,32 @@ export function getBuiltInNodeModules(): Array<string> {
     return Object.keys(process.binding("natives")).filter(m => {
         return !/^_|^internal|\//.test(m) && MBLACKLIST.indexOf(m) === -1;
     });
+}
+
+export function findFileBackwards(target: string, limitPath: string): string {
+
+    let [found, reachedLimit] = [false, false];
+    let filename = path.basename(target);
+    let current = path.dirname(target);
+    let iterations = 0;
+    const maxIterations = 10;
+
+    while (found === false && reachedLimit === false) {
+
+        let targetFilePath = path.join(current, filename);
+        if (fs.existsSync(targetFilePath)) {
+            return targetFilePath;
+        }
+
+        if (limitPath === current) {
+            reachedLimit = true;
+        }
+        // going backwards
+        current = path.join(current, "..");
+        // Making sure we won't have any perpetual loops here
+        iterations++;
+        if (iterations > maxIterations) {
+            reachedLimit = true;
+        }
+    }
 }

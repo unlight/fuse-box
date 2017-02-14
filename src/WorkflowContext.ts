@@ -7,253 +7,99 @@ import { IPackageInformation, IPathInformation, AllowedExtenstions } from "./Pat
 import { ModuleCollection } from "./ModuleCollection";
 import { ModuleCache } from "./ModuleCache";
 import { utils } from "realm-utils";
-import { EventEmitter } from "events";
+import { EventEmitter } from "./EventEmitter";
+import { ensureUserPath, findFileBackwards } from './Utils';
+import { SourceChangedEvent } from './devServer/Server';
+
 
 const appRoot = require("app-root-path");
 
-const mkdirp = require("mkdirp");
 /**
- * 
- * 
- * @export
- * @interface Plugin
+ * Interface for a FuseBox plugin
  */
 export interface Plugin {
-    /**
-     * 
-     * 
-     * @type {RegExp}
-     * @memberOf Plugin
-     */
     test?: RegExp;
-    /**
-     * 
-     * 
-     * @type {string[]}
-     * @memberOf Plugin
-     */
     dependencies?: string[];
-
-
-    /**
-     * 
-     * 
-     * @type {{ (context: WorkFlowContext) }}
-     * @memberOf Plugin
-     */
     init?: { (context: WorkFlowContext) };
-    /**
-     * 
-     * 
-     * @type {{ (file: File, ast?: any) }}
-     * @memberOf Plugin
-     */
     transform?: { (file: File, ast?: any) };
-
-
     transformGroup?: { (file: File) };
-    /**
-     * 
-     * 
-     * @param {WorkFlowContext} context
-     * 
-     * @memberOf Plugin
-     */
     bundleStart?(context: WorkFlowContext);
-    /**
-     * 
-     * 
-     * @param {WorkFlowContext} context
-     * 
-     * @memberOf Plugin
-     */
     bundleEnd?(context: WorkFlowContext);
 }
 
 /**
- * WorkFlowContext
- */
-/**
- * 
- * 
- * @export
- * @class WorkFlowContext
+ * Gets passed to each plugin to track FuseBox configuration
  */
 export class WorkFlowContext {
-
-
     public shim: any;
 
+    public sourceChangedEmitter = new EventEmitter<SourceChangedEvent>();
+
     /**
-     * 
-     * 
-     * 
-     * @memberOf WorkFlowContext
-     */
-    public emmitter = new EventEmitter();
-    /**
-     * 
-     * 
-     * 
-     * @memberOf WorkFlowContext
+     * The default package name or the package name configured in options
      */
     public defaultPackageName = "default";
 
-    /**
-     * 
-     * 
-     * @type {string[]}
-     * @memberOf WorkFlowContext
-     */
+    public transformTypescript?: (contents: string) => string;
+
     public ignoreGlobal: string[] = [];
-    /**
-     * 
-     * 
-     * @type {Map<string, ModuleCollection>}
-     * @memberOf WorkFlowContext
-     */
+
     public nodeModules: Map<string, ModuleCollection> = new Map();
-    /**
-     * 
-     * 
-     * @type {Map<string, IPackageInformation>}
-     * @memberOf WorkFlowContext
-     */
+
     public libPaths: Map<string, IPackageInformation> = new Map();
-    /**
-     * 
-     * 
-     * @type {string}
-     * @memberOf WorkFlowContext
-     */
+
     public homeDir: string;
-    /**
-     * 
-     * 
-     * 
-     * @memberOf WorkFlowContext
-     */
+
     public printLogs = true;
-    /**
-     * 
-     * 
-     * @type {Plugin[]}
-     * @memberOf WorkFlowContext
-     */
+
     public plugins: Plugin[];
 
     public fileGroups: Map<string, File>;
-    /**
-     * 
-     * 
-     * 
-     * @memberOf WorkFlowContext
-     */
+
     public useCache = true;
-    /**
-     * 
-     * 
-     * 
-     * @memberOf WorkFlowContext
-     */
+
     public doLog = true;
-    /**
-     * 
-     * 
-     * 
-     * @memberOf WorkFlowContext
-     */
+
     public cache: ModuleCache;
-    /**
-     * 
-     * 
-     * @type {*}
-     * @memberOf WorkFlowContext
-     */
+
     public tsConfig: any;
-    /**
-     * 
-     * 
-     * @type {string}
-     * @memberOf WorkFlowContext
-     */
+
     public customModulesFolder: string;
-    /**
-     * 
-     * 
-     * 
-     * @memberOf WorkFlowContext
-     */
+
     public tsMode = false;
-    /**
-     * 
-     * 
-     * @type {string[]}
-     * @memberOf WorkFlowContext
-     */
-    public globals: any;
-    /**
-     * 
-     * 
-     * @type {boolean}
-     * @memberOf WorkFlowContext
-     */
+
+    public loadedTsConfig: string;
+
+    public globals: { [packageName: string]: /** Variable name */ string };
+
     public standaloneBundle: boolean = true;
-    /**
-     * 
-     * 
-     * @type {BundleSource}
-     * @memberOf WorkFlowContext
-     */
+
     public source: BundleSource;
-    /**
-     * 
-     * 
-     * @type {*}
-     * @memberOf WorkFlowContext
-     */
+
     public sourceMapConfig: any;
-    /**
-     * 
-     * 
-     * @type {string}
-     * @memberOf WorkFlowContext
-     */
+
     public outFile: string;
 
     public initialLoad = true;
 
-    /**
-     * 
-     * 
-     * @type {Log}
-     * @memberOf WorkFlowContext
-     */
     public log: Log = new Log(this.doLog)
 
     public pluginTriggers: Map<string, Set<String>>;
 
     public storage: Map<string, any>;
+
     public initCache() {
         this.cache = new ModuleCache(this);
     }
 
     public emitJavascriptHotReload(file: File) {
-        this.emmitter.emit("source-changed", {
+        this.sourceChangedEmitter.emit({
             type: "js",
             content: file.contents,
             path: file.info.fuseBoxPath,
         });
     }
 
-    /**
-     * 
-     * 
-     * @param {string} name
-     * @returns {boolean}
-     * 
-     * @memberOf WorkFlowContext
-     */
     public isShimed(name: string): boolean {
         if (!this.shim) {
             return false;
@@ -263,10 +109,7 @@ export class WorkFlowContext {
 
 
     /**
-     * 
-     * 
-     * 
-     * @memberOf WorkFlowContext
+     * Resets significant class members
      */
     public reset() {
         this.log = new Log(this.doLog);
@@ -289,10 +132,6 @@ export class WorkFlowContext {
     /**
      * Create a new file group
      * Mocks up file
-     * 
-     * @param {string} name
-     * 
-     * @memberOf WorkFlowContext
      */
     public createFileGroup(name: string): File {
         let info = <IPathInformation>{
@@ -310,39 +149,17 @@ export class WorkFlowContext {
     public getFileGroup(name: string): File {
         return this.fileGroups.get(name);
     }
-    /**
-     * 
-     * 
-     * @param {string} ext
-     * 
-     * @memberOf WorkFlowContext
-     */
+
     public allowExtension(ext: string) {
         if (!AllowedExtenstions.has(ext)) {
             AllowedExtenstions.add(ext);
         }
     }
-    /**
-     * 
-     * 
-     * @param {string} dir
-     * 
-     * @memberOf WorkFlowContext
-     */
+
     public setHomeDir(dir: string) {
         this.homeDir = dir;
     }
 
-    /**
-     * 
-     * 
-     * @param {string} name
-     * @param {string} version
-     * @param {IPackageInformation} info
-     * @returns
-     * 
-     * @memberOf WorkFlowContext
-     */
     public setLibInfo(name: string, version: string, info: IPackageInformation) {
         let key = `${name}@${version}`;
         if (!this.libPaths.has(key)) {
@@ -350,26 +167,11 @@ export class WorkFlowContext {
         }
     }
 
-    /**
-     * 
-     * 
-     * @param {string} name
-     * @returns
-     * 
-     * @memberOf WorkFlowContext
-     */
+    /** Converts the file extension from `.ts` to `.js` */
     public convert2typescript(name: string) {
-        return name.replace(/\.ts$/, ".js");
+        return name.replace(/\.ts$/, '.js');
     }
-    /**
-     * 
-     * 
-     * @param {string} name
-     * @param {string} version
-     * @returns {IPackageInformation}
-     * 
-     * @memberOf WorkFlowContext
-     */
+
     public getLibInfo(name: string, version: string): IPackageInformation {
         let key = `${name}@${version}`;
         if (this.libPaths.has(key)) {
@@ -377,149 +179,91 @@ export class WorkFlowContext {
         }
     }
 
-    /**
-     * 
-     * 
-     * @param {any} printLogs
-     * 
-     * @memberOf WorkFlowContext
-     */
-    public setPrintLogs(printLogs) {
+    public setPrintLogs(printLogs: boolean) {
         this.printLogs = printLogs;
     }
 
-    /**
-     * 
-     * 
-     * @param {boolean} useCache
-     * 
-     * @memberOf WorkFlowContext
-     */
     public setUseCache(useCache: boolean) {
         this.useCache = useCache;
     }
 
-    /**
-     * 
-     * 
-     * @param {string} name
-     * @returns
-     * 
-     * @memberOf WorkFlowContext
-     */
-    public hasNodeModule(name: string) {
+    public hasNodeModule(name: string): boolean {
         return this.nodeModules.has(name);
     }
 
-    public isGlobalyIgnored(name: string) {
+    public isGlobalyIgnored(name: string): boolean {
         return this.ignoreGlobal.indexOf(name) > -1;
     }
 
-    /**
-     * 
-     * 
-     * @param {string} name
-     * @param {ModuleCollection} collection
-     * 
-     * @memberOf WorkFlowContext
-     */
     public addNodeModule(name: string, collection: ModuleCollection) {
         this.nodeModules.set(name, collection);
     }
 
-    /**
-     * 
-     * 
-     * @returns
-     * 
-     * @memberOf WorkFlowContext
+
+    /** 
+     * Retuns the parsed `tsconfig.json` contents
      */
     public getTypeScriptConfig() {
+        if (this.loadedTsConfig) {
+            return this.loadedTsConfig;
+        }
+
+        let url, configFile;
+        let config: any = {
+            compilerOptions: {}
+        };;
         if (this.tsConfig) {
-            return this.tsConfig;
-        }
-        let url = path.join(this.homeDir, "tsconfig.json");
-        if (fs.existsSync(url)) {
-            this.tsConfig = require(url);
+            configFile = ensureUserPath(this.tsConfig);
         } else {
-            this.tsConfig = {
-                compilerOptions: {}
-            };
+            url = path.join(this.homeDir, "tsconfig.json");
+            let tsconfig = findFileBackwards(url, appRoot.path);
+            if (tsconfig) {
+                configFile = tsconfig;
+            }
         }
-        this.tsConfig.compilerOptions.module = "commonjs";
+        if (configFile) {
+            this.log.echoStatus(`Typescript config:  ${configFile.replace(appRoot.path, '')}`);
+            config = require(configFile);
+        } else {
+            this.log.echoStatus(`Typescript config file was not found. Improvising`);
+        }
+
+        config.compilerOptions.module = "commonjs";
         if (this.sourceMapConfig) {
-            this.tsConfig.compilerOptions.sourceMap = true;
-            this.tsConfig.compilerOptions.inlineSources = true;
+            config.compilerOptions.sourceMap = true;
+            config.compilerOptions.inlineSources = true;
         }
-        return this.tsConfig;
+        this.loadedTsConfig = config;
+        return config;
     }
 
     public isFirstTime() {
         return this.initialLoad === true;
     }
 
-    /**
-     * 
-     * 
-     * @param {string} userPath
-     * @returns
-     * 
-     * @memberOf WorkFlowContext
-     */
-    public ensureUserPath(userPath: string) {
-        if (!path.isAbsolute(userPath)) {
-            userPath = path.join(appRoot.path, userPath);
-        }
-        let dir = path.dirname(userPath);
-        mkdirp.sync(dir);
-        return userPath;
-    }
-
-    /**
-     * 
-     * 
-     * 
-     * @memberOf WorkFlowContext
-     */
-    public writeOutput(fn?: any) {
+    public writeOutput(outFileWritten?: () => any) {
         this.initialLoad = false;
         let res = this.source.getResult();
         // Writing sourcemaps
         if (this.sourceMapConfig && this.sourceMapConfig.outFile) {
-            let target = this.ensureUserPath(this.sourceMapConfig.outFile);
+            let target = ensureUserPath(this.sourceMapConfig.outFile);
             fs.writeFile(target, res.sourceMap, () => { });
         }
         // writing target
         if (this.outFile) {
-            let target = this.ensureUserPath(this.outFile);
+            let target = ensureUserPath(this.outFile);
             fs.writeFile(target, res.content, () => {
-                if (utils.isFunction(fn)) {
-                    fn();
+                if (utils.isFunction(outFileWritten)) {
+                    outFileWritten();
                 }
             });
         }
     }
 
-    /**
-     * 
-     * 
-     * @param {string} name
-     * @returns {ModuleCollection}
-     * 
-     * @memberOf WorkFlowContext
-     */
     public getNodeModule(name: string): ModuleCollection {
         return this.nodeModules.get(name);
     }
 
-    /**
-     * 
-     * 
-     * @param {string} name
-     * @param {*} args
-     * 
-     * @memberOf WorkFlowContext
-     */
     public triggerPluginsMethodOnce(name: string, args: any, fn?: { (plugin: Plugin) }) {
         this.plugins.forEach(plugin => {
             if (Array.isArray(plugin)) {
@@ -544,15 +288,9 @@ export class WorkFlowContext {
             }
         });
     }
+
     /**
-     * Make sure plugin method is triggered only once
-     * 
-     * @private
-     * @param {*} cls
-     * @param {string} method
-     * @returns
-     * 
-     * @memberOf WorkFlowContext
+     * Makes sure plugin method is triggered only once
      */
     private pluginRequiresTriggering(cls: any, method: string) {
         if (!cls.constructor) {

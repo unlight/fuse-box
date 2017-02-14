@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import { ensureUserPath } from "./Utils";
 import { ShimCollection } from "./ShimCollection";
-import { Server } from "./devServer/Server";
+import { Server, ServerOptions } from "./devServer/Server";
 import { JSONPlugin } from "./plugins/JSONplugin";
 import { PathMaster } from "./PathMaster";
 import { WorkFlowContext } from "./WorkflowContext";
@@ -12,9 +12,27 @@ import * as path from "path";
 import { each, utils, chain, Chainable } from "realm-utils";
 import { Config } from "./Config";
 import { BundleTestRunner } from "./testRunner/BundleTestRunner";
-import { FuseAPI } from './lib/FuseApi';
 const appRoot = require("app-root-path");
-const watch = require("watch");
+
+export interface FuseBoxOptions {
+    homeDir?: string;
+    modulesFolder?: string;
+    tsConfig?: string;
+    package?: string;
+    cache?: boolean;
+    log?: boolean;
+    globals?: { [packageName: string]: /** Variable name */ string };
+    plugins?: any[];
+    shim?: any;
+    standaloneBundle?: boolean;
+    sourceMap?: any;
+    ignoreGlobal?: string[];
+    outFile?: string;
+    files?: any;
+    transformTypescript?: (contents: string) => string;
+}
+
+
 /**
  *
  *
@@ -24,7 +42,7 @@ const watch = require("watch");
 export class FuseBox {
 
 
-    public static init(opts?: any) {
+    public static init(opts?: FuseBoxOptions) {
         return new FuseBox(opts);
     }
     public virtualFiles: any;
@@ -41,7 +59,7 @@ export class FuseBox {
      *
      * @memberOf FuseBox
      */
-    constructor(public opts: any) {
+    constructor(public opts?: FuseBoxOptions) {
         this.context = new WorkFlowContext();
         this.collectionSource = new CollectionSource(this.context);
         opts = opts || {};
@@ -55,6 +73,9 @@ export class FuseBox {
                     ? opts.modulesFolder : path.join(appRoot.path, opts.modulesFolder);
         }
 
+        if (opts.transformTypescript) {
+            this.context.transformTypescript = opts.transformTypescript;
+        }
         if (opts.tsConfig) {
             this.context.tsConfig = opts.tsConfig;
         }
@@ -72,6 +93,7 @@ export class FuseBox {
             this.context.doLog = opts.log ? true : false;
         }
 
+
         if (opts.globals) {
             this.context.globals = opts.globals;
         }
@@ -80,7 +102,7 @@ export class FuseBox {
             this.context.shim = opts.shim;
         }
 
-        if (opts.standalone !== undefined) {
+        if (opts.standaloneBundle !== undefined) {
             this.context.standaloneBundle = opts.standaloneBundle;
         }
 
@@ -124,43 +146,29 @@ export class FuseBox {
 
 
     /**
-     * Make  a Bundle 
-     * 
-     * @param {string} str
-     * @param {boolean} [daemon] string to a daemon (watching)
-     * 
-     * @memberOf FuseBox
+     * Make a Bundle (or bundles)
      */
-    public bundle(str: any, bundleReady?: any) {
+    public bundle(str: string | { [bundleStr: string]: /** outFile */ string }, bundleReady?: any) {
         if (utils.isString(str)) {
-            return this.initiateBundle(str, bundleReady);
+            return this.initiateBundle(str as string, bundleReady);
         }
         if (utils.isPlainObject(str)) {
             let items = str;
-            return each(items, (bundleStr, outFile) => {
-                let newConfig = Object.assign(this.opts, { outFile: outFile })
+            return each(items, (bundleStr: string, outFile: string) => {
+                let newConfig = Object.assign({}, this.opts, { outFile: outFile });
                 let fuse = FuseBox.init(newConfig);
                 return fuse.initiateBundle(bundleStr);
             });
         }
     }
 
-
-
-    /**
-     * 
-     * 
-     * @param {string} str
-     * @param {*} opts
-     * 
-     * @memberOf FuseBox
-     */
-    public devServer(str: string, opts: any) {
+    /** Starts the dev server and returns it */
+    public devServer(str: string, opts?: ServerOptions) {
         let server = new Server(this);
         return server.start(str, opts);
     }
 
-    public process(bundleData: BundleData, bundleReady?: any) {
+    public process(bundleData: BundleData, bundleReady?: () => any) {
         let bundleCollection = new ModuleCollection(this.context, this.context.defaultPackageName);
         bundleCollection.pm = new PathMaster(this.context, bundleData.homeDir);
 

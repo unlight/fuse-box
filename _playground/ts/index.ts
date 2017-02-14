@@ -1,9 +1,12 @@
-import "jstree/dist/jstree.js";
-import "jstree/dist/themes/default/style.css";
-import "./styles.css";
+const buffer = require("buffer");
+console.log(buffer);
 
 
 
-$(function () {
-    $('#container').jstree();
-});
+
+
+
+
+
+
+

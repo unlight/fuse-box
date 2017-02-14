@@ -26,7 +26,6 @@ export class CSSPluginClass implements Plugin {
     private serve: any;
     private writeOptions: any;
     private bundle: any;
-    private urlRules: any;
 
     constructor(opts: any) {
         opts = opts || {};
@@ -167,14 +166,18 @@ export class CSSPluginClass implements Plugin {
             let cssContent = this.minify ? this.minifyContents(file.contents) : file.contents;
             let safeContents = JSON.stringify(cssContent);
 
-            file.context.emmitter.emit("source-changed", {
+            file.context.sourceChangedEmitter.emit({
                 type: "css",
                 content: cssContent,
                 path: file.info.fuseBoxPath,
             });
-            contents = `__fsbx_css("${filePath}", ${safeContents})`;
+            contents = `__fsbx_css("${filePath}", ${safeContents});`;
         }
 
+        const chainExports = file.getProperty("exports");
+        if (chainExports && contents) {
+            contents += `module.exports = ${chainExports}`;
+        }
         file.contents = contents;
     }
 

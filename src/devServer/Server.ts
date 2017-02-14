@@ -8,6 +8,23 @@ import { utils } from "realm-utils";
 import * as process from "process";
 const watch = require("watch");
 
+export type HotReloadEmitter = (server: Server, sourceChangedInfo: any) => any;
+
+export type SourceChangedEvent = {
+    type: 'js' | 'css',
+    content: string,
+    path: string
+}
+
+export interface ServerOptions {
+    /** Defaults to 4444 if not specified */
+    port?: number;
+    
+    root?: boolean | string;
+    emitter?: HotReloadEmitter;
+    httpServer?: boolean;
+}
+
 export class Server {
     public httpServer: HTTPServer;
     public socketServer: SocketServer;
@@ -21,7 +38,7 @@ export class Server {
      * 
      * @memberOf Server
      */
-    public start(str: string, opts: any): Server {
+    public start(str: string, opts?: ServerOptions): Server {
         // adding hot reload plugin
 
         opts = opts || {};
@@ -29,33 +46,30 @@ export class Server {
         let buildPath = ensureUserPath(this.fuse.context.outFile);
         let rootDir = path.dirname(buildPath);
 
-        opts.root = opts.root !== undefined
-            ? (utils.isString(opts.root) ? ensureUserPath(opts.root) : false) : rootDir;
-        opts.port = opts.port || 4444;
+        const root: string | boolean = opts.root !== undefined
+            ? (utils.isString(opts.root) ? ensureUserPath(opts.root as string) : false) : rootDir;
+        const port = opts.port || 4444;
+
         this.fuse.context.plugins.push(
-            HotReloadPlugin({ port: opts.port })
+            HotReloadPlugin({ port })
         );
 
         // allow user to override hot reload emitter
-        let emitter = utils.isFunction(opts.emitter) ? opts.emitter : false;
+        let emitter: HotReloadEmitter | false = utils.isFunction(opts.emitter) ? opts.emitter : false;
 
         // let middlewares to connect
         this.httpServer = new HTTPServer(this.fuse);
 
         process.nextTick(() => {
             if (opts.httpServer === false) {
-                SocketServer.startSocketServer(opts.port, this.fuse);
+                SocketServer.startSocketServer(port, this.fuse);
             } else {
-                this.httpServer.launch(opts);
+                this.httpServer.launch({ root, port });
             }
 
             this.socketServer = SocketServer.getInstance();
 
-            this.fuse.context.emmitter.addListener("source-changed", (info) => {
-
-                // type: "js",
-                // content: file.contents,
-                // path: file.info.fuseBoxPath,
+            this.fuse.context.sourceChangedEmitter.on((info) => {
                 if (this.fuse.context.isFirstTime() === false) {
                     this.fuse.context.log.echo(`Source changed for ${info.path}`);
                     if (emitter) {
@@ -64,14 +78,15 @@ export class Server {
                         this.socketServer.send("source-changed", info);
                     }
                 }
-
             });
 
 
-
+            let timeout;
             watch.watchTree(this.fuse.context.homeDir, { interval: 0.2 }, () => {
-
-                this.fuse.initiateBundle(str);
+                clearInterval(timeout);
+                timeout = setTimeout(() => {
+                    this.fuse.initiateBundle(str);
+                }, 70);
             });
         });
         return this;

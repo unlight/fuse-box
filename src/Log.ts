@@ -24,7 +24,17 @@ export class Log {
         cursor.write("\n");
         cursor.reset();
     }
-    public echoDefaultCollection(collection: ModuleCollection, contents: string, printFiles?: boolean) {
+
+    public echoStatus(str: string) {
+        if (this.printLog) {
+            cursor.write(`  → `)
+                .cyan().write(str);
+            cursor.write("\n");
+            cursor.reset();
+        }
+    }
+
+    public echoDefaultCollection(collection: ModuleCollection, contents: string) {
         if (!this.printLog) {
             return;
         }
@@ -44,7 +54,7 @@ export class Log {
         cursor.reset();
     }
 
-    public echoCollection(collection: ModuleCollection, contents: string, printFiles?: boolean) {
+    public echoCollection(collection: ModuleCollection, contents: string) {
         if (!this.printLog) {
             return;
         }

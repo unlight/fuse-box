@@ -85,6 +85,8 @@ export class File {
      * @memberOf File
      */
     public sourceMap: any;
+
+    public properties = new Map<string, any>();
     /**
      * 
      * 
@@ -119,6 +121,15 @@ export class File {
         this.absPath = info.absPath;
     }
 
+
+    public addProperty(key: string, obj: any) {
+        this.properties.set(key, obj);
+    }
+
+    public getProperty(key: string): any {
+        return this.properties.get(key);
+    }
+
     public hasSubFiles() {
         return this.subFiles.length > 0;
     }
@@ -126,6 +137,8 @@ export class File {
     public addSubFile(file: File) {
         this.subFiles.push(file);
     }
+
+
 
 
     /**
@@ -305,7 +318,14 @@ export class File {
         const ts = require("typescript");
 
         this.loadContents();
+
+
+        if (utils.isFunction(this.context.transformTypescript)) {
+            this.contents = this.context.transformTypescript(this.contents);
+        }
+
         let result = ts.transpileModule(this.contents, this.context.getTypeScriptConfig());
+
 
         if (result.sourceMapText && this.context.sourceMapConfig) {
             let jsonSourceMaps = JSON.parse(result.sourceMapText);
@@ -327,7 +347,7 @@ export class File {
                 cachedContent = this.headerContent.join("\n") + "\n" + cachedContent;
             }
 
-            this.context.emmitter.emit("source-changed", {
+            this.context.sourceChangedEmitter.emit({
                 type: "js",
                 content: cachedContent,
                 path: this.info.fuseBoxPath,

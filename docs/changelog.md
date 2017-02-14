@@ -3,6 +3,20 @@
 
 | Version         | Changes                 |
 | ---------------------- |:-----------------------------| 
+| 1.3.113             | PR 152 (Code refactor). TTY shim fix. + Initial VUE plugin
+| 1.3.112             | Merged [PR 147](https://github.com/fuse-box/fuse-box/pull/147) + Few non-significant tweaks
+| 1.3.111             | Fixing [modulesFolder](http://fuse-box.org/#custom-modules-folder) priority, Related [issue 124](https://github.com/fuse-box/fuse-box/issues/124)
+| 1.3.110             | Automatic tsconfig.json lookup
+| 1.3.109             | Clear Interval, avoiding frantic bundle call on fileChange
+| 1.3.108             | Preventing babel-plugin from transpiling all npm deps. Issue [108](https://github.com/fuse-box/fuse-box/issues/108)
+| 1.3.107             | Fixed broken tsConfig property
+| 1.3.106             | Added file.properties to the API. Removed buffer
+| 1.3.105             | Fixed errors related to Buffer. It is properly shimmed now, and fuse is serving a native "buffer" on server
+| 1.3.104             | Fixed tsConfig property
+| 1.3.103             | Added object-assign-polyfill to `process`
+| 1.3.102             | PR [101](https://github.com/fuse-box/fuse-box/pull/101) merged 
+| 1.3.101             | Quick fix in the API
+| 1.3.97-100          | Preparing test runner
 | 1.3.96              | Many bundles at once
 | 1.3.95              | SVG Support in CSSResourcePlugin
 | 1.3.90-94           | Tweaking CSSResourcePlugin
@@ -19,7 +33,7 @@
 | 1.3.50            | Fixed caching issue
 | 1.3.49            | Added [EnvPlugin](#envplugin)
 | 1.3.48            | Added `FuseBox.packages` to the client API
-| 1.3.47            | Fixed a critical bug related to circual dep resolution on cache
+| 1.3.47            | Fixed a critical bug related to circular dep resolution on cache
 | 1.3.45-46         | Added few missing nodejs libs
 | 1.3.44            | Fixed an issue related to typescript helpers (typo)
 | 1.3.43            | Fixed [75](https://github.com/fuse-box/fuse-box/issues/75) Typescript helpers

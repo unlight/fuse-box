@@ -1,3 +1,4 @@
+export { VuePlugin } from "./plugins/VuePlugin";
 export { ImageBase64Plugin } from "./plugins/ImageBase64Plugin";
 export { CSSResourcePlugin } from "./plugins/CSSResourcePlugin";
 export { HotReloadPlugin } from "./plugins/HotReloadPlugin";
@@ -15,8 +16,7 @@ export { HTMLPlugin } from "./plugins/HTMLplugin";
 export { JSONPlugin } from "./plugins/JSONplugin";
 export { BannerPlugin } from "./plugins/BannerPlugin";
 export { SassPlugin } from "./plugins/SassPlugin";
-
-
+export { CSSBundle } from "./plugins/CSSBundle";
 export { UglifyJSPlugin } from "./plugins/UglifyJSPlugin";
 export { SourceMapPlainJsPlugin } from "./plugins/SourceMapPlainJsPlugin";
 export { RawPlugin } from "./plugins/RawPlugin";

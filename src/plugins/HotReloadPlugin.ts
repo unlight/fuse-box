@@ -1,4 +1,3 @@
-import { File } from "../File";
 import { WorkFlowContext } from "./../WorkflowContext";
 import { Plugin } from "../WorkflowContext";
 
@@ -12,7 +11,7 @@ import { Plugin } from "../WorkflowContext";
 export class HotReloadPluginClass implements Plugin {
     public dependencies = ["fusebox-hot-reload"];
     public port: any = "";
-    constructor(opts: any = {}) {
+    constructor(opts: { port?: number | string } = {}) {
         if (opts.port) {
             this.port = opts.port;
         }
