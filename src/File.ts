@@ -213,6 +213,16 @@ export class File {
 
             if (target) {
                 if (Array.isArray(target)) {
+                    let context = this.context;
+                    if (context.useCache) {
+                        let cached = context.cache.getStaticCache(this);
+                        if (cached) {
+                            this.isLoaded = true;
+                            this.contents = cached.contents;
+                            this.sourceMap = cached.sourceMap;
+                            return;
+                        }
+                    }
                     this.asyncResolve(each(target, (plugin: Plugin) => {
                         // if we are in a groupMode, we don't trigger tranform
                         // we trigger tranformGroup
@@ -223,6 +233,9 @@ export class File {
                             return plugin.transform.apply(plugin, [this]);
                         }
                     }));
+                    Promise.all(this.resolving).then(() => {
+                        context.cache.writeStaticCache(this, this.sourceMap);
+                    });
                 } else {
                     if (this.groupMode && utils.isFunction(target.transformGroup)) {
                         return this.asyncResolve(target.transformGroup.apply(target, [this]));
