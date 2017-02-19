@@ -96,9 +96,16 @@ class File {
                             return plugin.transform.apply(plugin, [this]);
                         }
                     }));
-                    Promise.all(this.resolving).then(() => {
-                        context.cache.writeStaticCache(this, this.sourceMap);
-                    });
+                    if (context.useCache) {
+                        Promise.all(this.resolving).then(() => {
+                            context.sourceChangedEmitter.emit({
+                                type: null,
+                                content: this.contents,
+                                path: this.info.fuseBoxPath,
+                            });
+                            context.cache.writeStaticCache(this, this.sourceMap);
+                        });
+                    }
                 }
                 else {
                     if (this.groupMode && realm_utils_1.utils.isFunction(target.transformGroup)) {
