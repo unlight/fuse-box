@@ -78,6 +78,16 @@ class File {
             }
             if (target) {
                 if (Array.isArray(target)) {
+                    let context = this.context;
+                    if (context.useCache) {
+                        let cached = context.cache.getStaticCache(this);
+                        if (cached) {
+                            this.isLoaded = true;
+                            this.contents = cached.contents;
+                            this.sourceMap = cached.sourceMap;
+                            return;
+                        }
+                    }
                     this.asyncResolve(realm_utils_1.each(target, (plugin) => {
                         if (this.groupMode && realm_utils_1.utils.isFunction(plugin.transformGroup)) {
                             return plugin.transformGroup.apply(plugin, [this]);
@@ -86,6 +96,9 @@ class File {
                             return plugin.transform.apply(plugin, [this]);
                         }
                     }));
+                    Promise.all(this.resolving).then(() => {
+                        context.cache.writeStaticCache(this, this.sourceMap);
+                    });
                 }
                 else {
                     if (this.groupMode && realm_utils_1.utils.isFunction(target.transformGroup)) {
