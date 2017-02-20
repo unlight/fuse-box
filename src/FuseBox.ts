@@ -1,10 +1,10 @@
 import * as fs from "fs";
-import { ensureUserPath } from "./Utils";
+import { ensureUserPath, contains } from './Utils';
 import { ShimCollection } from "./ShimCollection";
 import { Server, ServerOptions } from "./devServer/Server";
 import { JSONPlugin } from "./plugins/JSONplugin";
 import { PathMaster } from "./PathMaster";
-import { WorkFlowContext } from "./WorkflowContext";
+import { WorkFlowContext, Plugin } from "./WorkflowContext";
 import { CollectionSource } from "./CollectionSource";
 import { Arithmetic, BundleData } from "./Arithmetic";
 import { ModuleCollection } from "./ModuleCollection";
@@ -12,6 +12,8 @@ import * as path from "path";
 import { each, utils, chain, Chainable } from "realm-utils";
 import { Config } from "./Config";
 import { BundleTestRunner } from "./testRunner/BundleTestRunner";
+import * as process from 'process';
+
 const appRoot = require("app-root-path");
 
 export interface FuseBoxOptions {
@@ -22,12 +24,14 @@ export interface FuseBoxOptions {
     cache?: boolean;
     log?: boolean;
     globals?: { [packageName: string]: /** Variable name */ string };
-    plugins?: any[];
+    plugins?: Plugin[];
     shim?: any;
     standaloneBundle?: boolean;
     sourceMap?: any;
     ignoreGlobal?: string[];
+    serverBundle?: boolean;
     outFile?: string;
+    debug?: boolean;
     files?: any;
     transformTypescript?: (contents: string) => string;
 }
@@ -67,6 +71,12 @@ export class FuseBox {
         if (opts.homeDir) {
             homeDir = path.isAbsolute(opts.homeDir) ? opts.homeDir : path.join(appRoot.path, opts.homeDir);
         }
+        if (opts.debug !== undefined) {
+            this.context.debugMode = opts.debug;
+        }
+
+        this.context.debugMode = opts.debug !== undefined ? opts.debug : contains(process.argv, '--debug')
+
         if (opts.modulesFolder) {
             this.context.customModulesFolder =
                 path.isAbsolute(opts.modulesFolder)
@@ -78,6 +88,10 @@ export class FuseBox {
         }
         if (opts.tsConfig) {
             this.context.tsConfig = opts.tsConfig;
+        }
+
+        if (opts.serverBundle !== undefined) {
+            this.context.serverBundle = opts.serverBundle;
         }
 
         this.context.plugins = opts.plugins || [JSONPlugin()];
@@ -148,7 +162,7 @@ export class FuseBox {
     /**
      * Make a Bundle (or bundles)
      */
-    public bundle(str: string | { [bundleStr: string]: /** outFile */ string }, bundleReady?: any) {
+    public bundle(str: string | { [bundleStr: string]: /** outFile */ string }, bundleReady?: any): Promise<any> {
         if (utils.isString(str)) {
             return this.initiateBundle(str as string, bundleReady);
         }
@@ -198,7 +212,6 @@ export class FuseBox {
 
                 public addNodeModules() {
                     return each(self.context.nodeModules, (collection: ModuleCollection) => {
-
                         if (collection.cached || (collection.info && !collection.info.missing)) {
                             return self.collectionSource.get(collection).then((cnt: string) => {
                                 self.context.log.echoCollection(collection, cnt);
@@ -224,7 +237,7 @@ export class FuseBox {
                 this.triggerPost();
                 this.context.writeOutput(bundleReady);
                 return self.context.source.getResult();
-            });
+            })
         });
     }
 

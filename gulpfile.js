@@ -13,33 +13,94 @@ const spawn = child_process.spawn;
 const wrap = require('gulp-wrap');
 const uglify = require('gulp-uglify');
 
-let projectTypings = ts.createProject('src/tsconfig.json');
-let projectCommonjs = ts.createProject('src/tsconfig.json', {
-    target: 'es6',
-});
+/**
+ * Fail on error if not in watch mode
+ */
+let watching = false;
+function onError(error) {
+    if (!watching) {
+        process.exit(1);
+    }
+}
 
-let projectFrontend = ts.createProject('src-frontend/tsconfig.json', {
-
+/**
+ * ts projects
+ */
+let projectTypings = ts.createProject('src/tsconfig.json', {
+    removeComments: false,
 });
-gulp.task('src-frontend', () => {
-    return gulp.src('src-frontend/**/*.ts')
-        .pipe(projectFrontend()).js
-        .pipe(wrap('(function(__root__){ <%= contents %> \nreturn __root__["FuseBox"] = FuseBox; } )(this)'))
+let projectCommonjs = ts.createProject('src/tsconfig.json');
+let projectLoader = ts.createProject('src/loader/tsconfig.json');
+let projectLoaderTypings = ts.createProject('src/loader/tsconfig.json', {
+    removeComments: false,
+});
+let projectModule = ts.createProject('src/modules/tsconfig.json');
+
+/**
+ * Our commonjs only files
+ */
+let filesMain = ['src/**/*.ts', "!./src/loader/LoaderAPI.ts", "!./src/modules/**/*.ts"];
+
+/**
+ * Loader API building
+ */
+gulp.task('dist-loader-js', () => {
+    return gulp.src('src/loader/LoaderAPI.ts')
+        .pipe(projectLoader()).on('error', onError).js
+        .pipe(wrap(`(function(__root__){
+if (__root__["FuseBox"]) return __root__["FuseBox"];
+<%= contents %>
+return __root__["FuseBox"] = FuseBox; } )(this)`
+        ))
         .pipe(rename('fusebox.js'))
-        .pipe(gulp.dest('assets/frontend'))
+        .pipe(gulp.dest('modules/fuse-box-loader-api'))
         .pipe(rename('fusebox.min.js'))
         .pipe(uglify())
         .pipe(replace(/;$/, ''))
         .pipe(replace(/^\!/, ''))
-        .pipe(gulp.dest('assets/frontend'))
+        .pipe(gulp.dest('modules/fuse-box-loader-api'))
 
-})
+});
+gulp.task('dist-loader-typings', () => {
+    return gulp.src('src/loader/LoaderAPI.ts')
+        .pipe(projectLoaderTypings()).dts
+        .pipe(rename('LoaderAPI.ts'))
+        .pipe(gulp.dest('src/modules/fuse-loader'));
+});
+gulp.task('dist-loader', ['dist-loader-js', 'dist-loader-typings'])
 
+/**
+ * Used to build the fusebox modules
+ * When adding a new module here be sure to .gitignore `modules/${name}/`
+ */
+gulp.task('dist-modules', ['dist-loader-typings'], () => {
+    return gulp.src(`src/modules/**/*.ts`)
+        .pipe(projectModule()).on('error', onError)
+        .pipe(gulp.dest(`modules`))
+});
 
+/**
+ * Main building
+ */
+gulp.task('dist-typings', () => {
+    return result = gulp.src(filesMain)
+        .pipe(projectTypings()).dts
+        .pipe(gulp.dest('dist/typings'));
+});
+gulp.task('dist-commonjs', () => {
+    return gulp.src(filesMain)
+        .pipe(sourcemaps.init())
+        .pipe(projectCommonjs()).on('error', onError).js
+        .pipe(gulp.dest('dist/commonjs'));
+});
+gulp.task('dist-main', ['dist-typings', 'dist-commonjs']);
+
+/**
+ * NPM deploy management
+ */
 gulp.task('publish', function(done) {
     runSequence('dist', 'increment-version', 'commit-release', 'npm-publish', done);
-})
-
+});
 gulp.task('increment-version', function() {
     return gulp.src('./package.json')
         .pipe(bump())
@@ -68,86 +129,27 @@ gulp.task('npm-publish', function(done) {
         done()
     });
 });
-gulp.task('commit', ['dist', 'minify-frontend'], function(done) {
-    const readline = require('readline');
 
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
+/**
+ * Combined build task
+ */
+gulp.task('dist', ['dist-main', 'dist-loader', 'dist-modules']);
+
+/**
+ * For development workflow
+ */
+gulp.task('watch', ['dist'], function() {
+    watching = true;
+
+    gulp.watch(['src/loader/**/*.ts'], () => {
+        runSequence('dist-loader');
     });
 
-    rl.question('What are the updates? ', (text) => {
-        // TODO: Log the answer in a database
-        child_process.exec(`git add .; git commit -m "${text}" -a; git push origin master`, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`exec error: ${error}`);
-                return;
-            }
-            console.log(`stdout: ${stdout}`);
-            console.log(`stderr: ${stderr}`);
-            done();
-        });
-
-        rl.close();
-    });
-});
-
-gulp.task('dist-typings', () => {
-    let result = gulp.src('src/**/*.ts')
-        .pipe(projectTypings());
-    return result.dts.pipe(gulp.dest('dist/typings'));
-});
-
-gulp.task('dist-commonjs', () => {
-    let result = gulp.src('src/**/*.ts')
-        .pipe(sourcemaps.init())
-        .pipe(projectCommonjs());
-    return result.js.pipe(gulp.dest('dist/commonjs'));
-});
-
-let node;
-
-gulp.task('hello', function() {
-    if (node) node.kill()
-    node = spawn('node', ['hello.js'], {
-        stdio: 'inherit'
-    })
-    node.on('close', function(code) {
-        if (code === 8) {
-            gulp.log('Error detected, waiting for changes...');
-        }
-    });
-});
-
-gulp.task('minify-frontend', function() {
-    return gulp.src('assets/fusebox.js')
-        .pipe(uglify())
-        .pipe(rename('fusebox.min.js')).pipe(gulp.dest('assets/'))
-});
-
-gulp.task('watch', ['dist-commonjs', 'src-frontend'], function() {
-
-    gulp.watch(['src-frontend/**/*.ts'], () => {
-        runSequence('src-frontend');
+    gulp.watch(['src/modules/**/*.ts'], () => {
+        runSequence('dist-modules');
     });
 
-
-    // gulp.watch(['assets/**/*.js'], () => {
-    //     runSequence('hello');
-    // });
-
-    gulp.watch(['src/**/*.ts'], () => {
-        runSequence('dist-commonjs');
+    gulp.watch(filesMain, () => {
+        runSequence('dist-main');
     });
-});
-
-
-gulp.task('uglify-test', function() {
-    return gulp.src('./out.js')
-        .pipe(uglify())
-        .pipe(rename('out.min.js')).pipe(gulp.dest('./'))
-});
-
-gulp.task('dist', ['dist-typings', 'dist-commonjs', 'src-frontend'], function() {
-
 });

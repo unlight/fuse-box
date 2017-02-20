@@ -12,19 +12,39 @@ import { ensureUserPath, findFileBackwards } from './Utils';
 import { SourceChangedEvent } from './devServer/Server';
 
 
+/**
+ * All the plugin method names
+ */
+export type PluginMethodName =
+    'init'
+    | 'preBuild'
+    | 'preBundle'
+    | 'bundleStart'
+    | 'bundleEnd'
+    | 'postBundle'
+    | 'postBuild'
+
 const appRoot = require("app-root-path");
+
 
 /**
  * Interface for a FuseBox plugin
  */
 export interface Plugin {
     test?: RegExp;
+    opts?: any;
+    init?(context: WorkFlowContext): any;
+    transform?(file: File, ast?: any): any;
+    transformGroup?(file: File): any;
+    onTypescriptTransform?(file: File): any;
+    bundleStart?(context: WorkFlowContext): any;
+    bundleEnd?(context: WorkFlowContext): any;
+
+    /**
+     * If provided then the dependencies are loaded on the client
+     *  before the plugin is invoked
+     */
     dependencies?: string[];
-    init?: { (context: WorkFlowContext) };
-    transform?: { (file: File, ast?: any) };
-    transformGroup?: { (file: File) };
-    bundleStart?(context: WorkFlowContext);
-    bundleEnd?(context: WorkFlowContext);
 }
 
 /**
@@ -43,6 +63,13 @@ export class WorkFlowContext {
     public transformTypescript?: (contents: string) => string;
 
     public ignoreGlobal: string[] = [];
+
+    public pendingPromises: Promise<any>[] = [];
+
+    /**
+     * Explicitly target bundle to server
+     */
+    public serverBundle = false;
 
     public nodeModules: Map<string, ModuleCollection> = new Map();
 
@@ -82,11 +109,14 @@ export class WorkFlowContext {
 
     public initialLoad = true;
 
-    public log: Log = new Log(this.doLog)
+    public debugMode = false;
+
+    public log: Log = new Log(this)
 
     public pluginTriggers: Map<string, Set<String>>;
 
     public storage: Map<string, any>;
+
 
     public initCache() {
         this.cache = new ModuleCache(this);
@@ -98,6 +128,24 @@ export class WorkFlowContext {
             content: file.contents,
             path: file.info.fuseBoxPath,
         });
+    }
+
+    public debug(group: string, text: string) {
+        if (this.debugMode) {
+            this.log.echo(`${group} : ${text}`);
+        }
+    }
+
+    public warning(str: string) {
+        return this.log.echoWarning(str);
+    }
+
+    public fatal(str: string) {
+        throw new Error(str);
+    }
+    public debugPlugin(plugin: Plugin, text: string) {
+        const name = plugin.constructor && plugin.constructor.name ? plugin.constructor.name : "Unknown";
+        this.debug(name, text);
     }
 
     public isShimed(name: string): boolean {
@@ -112,7 +160,7 @@ export class WorkFlowContext {
      * Resets significant class members
      */
     public reset() {
-        this.log = new Log(this.doLog);
+        this.log = new Log(this);
         this.storage = new Map();
         this.source = new BundleSource(this);
         this.nodeModules = new Map();
@@ -133,14 +181,19 @@ export class WorkFlowContext {
      * Create a new file group
      * Mocks up file
      */
-    public createFileGroup(name: string): File {
+    public createFileGroup(name: string, collection: ModuleCollection, handler: Plugin): File {
         let info = <IPathInformation>{
             fuseBoxPath: name,
             absPath: name,
         }
         let file = new File(this, info);
+        file.collection = collection;
         file.contents = "";
         file.groupMode = true;
+        // Pass it along
+        // Transformation might happen in a different plugin
+        file.groupHandler = handler;
+
         this.fileGroups.set(name, file);
         return file;
     }
@@ -264,7 +317,10 @@ export class WorkFlowContext {
         return this.nodeModules.get(name);
     }
 
-    public triggerPluginsMethodOnce(name: string, args: any, fn?: { (plugin: Plugin) }) {
+    /**
+     * @param fn if provided, its called once the plugin method has been triggered
+     */
+    public triggerPluginsMethodOnce(name: PluginMethodName, args: any, fn?: { (plugin: Plugin) }) {
         this.plugins.forEach(plugin => {
             if (Array.isArray(plugin)) {
                 plugin.forEach(p => {
@@ -291,8 +347,9 @@ export class WorkFlowContext {
 
     /**
      * Makes sure plugin method is triggered only once
+     * @returns true if the plugin needs triggering
      */
-    private pluginRequiresTriggering(cls: any, method: string) {
+    private pluginRequiresTriggering(cls: any, method: PluginMethodName) {
         if (!cls.constructor) {
             return true;
         }

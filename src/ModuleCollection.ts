@@ -1,9 +1,9 @@
-import { File } from "./File";
+import { File } from './File';
 import { PathMaster, IPackageInformation } from "./PathMaster";
 import { WorkFlowContext } from "./WorkflowContext";
-import { each } from "realm-utils";
+import { each, utils } from 'realm-utils';
 import { BundleData } from "./Arithmetic";
-
+const PrettyError = require('pretty-error');
 
 /**
  * 
@@ -21,6 +21,11 @@ export class ModuleCollection {
     public nodeModules: Map<string, ModuleCollection> = new Map();
 
     public traversed = false;
+
+    public acceptFiles = true;
+
+    public pendingPromises: Promise<any>[] = [];
+
     /**
      * 
      * 
@@ -189,21 +194,31 @@ export class ModuleCollection {
         return each(data.including, (withDeps, modulePath) => {
             let file = new File(this.context, this.pm.init(modulePath));
             return this.resolve(file);
-        }).then(() => {
-            return this.onDefaultProjectDone();
-        }).then(x => {
-
-            return this.context.useCache ? this.context.cache.resolve(this.toBeResolved) : this.toBeResolved;
-        }).then(toResolve => {
-
-            return each(toResolve, (file: File) => {
-                return this.resolveNodeModule(file);
-            });
-        }).then(() => {
-            return this.context.cache.buildMap(this);
-        });
+        })
+            .then(() => this.resolvePending())
+            .then(() => this.transformGroups())
+            .then(() => {
+                return this.context.useCache ? this.context.cache.resolve(this.toBeResolved) : this.toBeResolved;
+            }).then(toResolve => {
+                return each(toResolve, (file: File) => {
+                    return this.resolveNodeModule(file);
+                });
+            }).then(() => {
+                return this.context.cache.buildMap(this);
+            }).catch(e => {
+                var pe = new PrettyError();
+                console.log("");
+                console.log(pe.render(e));
+            })
     }
+    /* Resolving pending files */
+    public resolvePending() {
 
+        return Promise.all(this.context.pendingPromises).then(() => {
+            // reset pending promises 
+            this.context.pendingPromises = [];
+        })
+    }
     /**
      * 
      * 
@@ -262,13 +277,26 @@ export class ModuleCollection {
             : collection.resolveEntry();
     }
 
-    public onDefaultProjectDone() {
 
-        this.context.fileGroups.forEach(group => {
+    public transformGroups() {
+        const promises = [];
+        this.context.fileGroups.forEach((group: File, name: string) => {
             this.dependencies.set(group.info.fuseBoxPath, group);
-            group.tryPlugins();
+            if (group.groupHandler) {
+                if (utils.isFunction(group.groupHandler.transformGroup)) {
+                    promises.push(new Promise((resolve, reject) => {
+                        const result = group.groupHandler.transformGroup(group);
+                        if (utils.isPromise(result)) {
+                            return result.then(resolve).catch(reject);
+                        }
+                        return resolve();
+                    }));
+                }
+            }
         });
+        return Promise.all(promises);
     }
+
     /**
      * 
      * 

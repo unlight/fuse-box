@@ -2,7 +2,7 @@
 
 The concept of FuseBox is simple. Bundle anything for frontend and server without a headache. Simply put, you can copy paste a simple config down below and bundle some heavy module like `babel-core` or `babel-generator`. But let's get started and break down all available options in fusebox.
 
-> App Root Path: We resolve a few relative paths to `appRootPath` for your convenience. Generally its the folder containing `package.json`.
+> App Root Path: We resolve a few relative paths to `appRootPath` for your convenience. Generally it's the folder containing `package.json`.
 
 ## Initialisation
 
@@ -84,11 +84,30 @@ You can expose your package variables to `window` (in browser) and `exports`in n
 
 ```
 FuseBox.init({
+    // exposes window.mySuperLib
     globals: { default: "mySuperLib" },
 })
 ```
 
-Whereas key is the name of a package and value is an alias that groups exports. "default" is your current project. Please, note, that in order to expose your default package, a bundle must have an [entry point](#entry-point)
+Whereas key is the name of a package and value is an alias that groups exports. "default" is your current project.
+
+You can also expose your packages exports to `window` or `exports`.
+
+```
+// assuming mySuperLib exports a "handler" and "logger" property
+
+FuseBox.init({
+    // exposes window.superHandler
+    globals: { "mySuperLib": { "handler": "superHandler"} },
+
+    // OR
+    // exposes window.handler and window.logger
+    globals: { "mySuperLib": "*" },
+})
+
+```
+
+Please, note, that in order to expose your package, a bundle must have a [package name](#package-name)
 
 ## Sourcemaps
 
@@ -144,14 +163,31 @@ console.log(foo)
 
 The key `jquery` in our case is used to define package name: for example, you can replace `jquery` with `foo` and use `import "foo"` to get a jquery instance.
 
-If you are coming from `Webpack` this also could be used to behave like the Aliasing Feature in `Webpack`, so the equivalent of the below in `Webpack`
-```
-alias: { 'react-native': 'react-native-web' }
-```
-would be
+Example shim config:
 ```
 shim : {
    "react-native-web" : { exports : "require('react-native')"}
 }
 ```
 Now you can reference it like  `window.ReactNative`, and require function is at your convenience.
+
+Important to note, shims will not be analyzed, which means they should be transpiled before importing, or imported into an environment that does not need them to be transpiled. Shimming works similar to [requirejs](http://requirejs.org/) and [jspm](http://jspm.io/).
+
+## Mapping
+🚧 Is a work in progress, this feature will provide similar functionality to webpack aliases.
+
+
+## Server Bundle
+
+
+In case you are running your bundle in `electron` for example,
+you might want to make fuse think that it is running on server.
+
+```
+FuseBox.init({
+    serverBundle : true
+})
+```
+> Use it ONLY for electron environment. This is a very special case that allows FuseBox to be run in browser but behave as if it's running on server.
+
+Don't run that bundle in a traditional browser.

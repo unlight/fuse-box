@@ -291,12 +291,15 @@ export class PathMaster {
                 // Getting an entry point
                 let entryFile;
                 let entryRoot;
-                if (json.main) {
-                    entryFile = path.join(folder, json.main);
-                } else {
-                    entryFile = path.join(folder, "index.js");
+                if (json.browser) {
+                  if (typeof json.browser === "object" && json.browser[json.main]) {
+                    entryFile = json.browser[json.main];
+                  }
+                  if (typeof json.browser === "string") {
+                    entryFile = json.browser;
+                  }
                 }
-
+                entryFile = path.join(folder, entryFile || json.main || "index.js");
                 entryRoot = path.dirname(entryFile);
                 return {
                     name: name,
@@ -322,7 +325,7 @@ export class PathMaster {
                 version: "0.0.0",
             };
         };
-        let localLib = path.join(Config.LOCAL_LIBS, name);
+        let localLib = path.join(Config.FUSEBOX_MODULES, name);
         let modulePath = path.join(Config.NODE_MODULES_DIR, name);
 
 

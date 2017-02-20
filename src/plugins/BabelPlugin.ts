@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as appRoot from 'app-root-path';
-import {File} from "../File";
-import {WorkFlowContext} from "./../WorkflowContext";
-import {Plugin} from "../WorkflowContext";
+import { File } from "../File";
+import { WorkFlowContext } from "./../WorkflowContext";
+import { Plugin } from "../WorkflowContext";
 
 let babelCore;
 /**
@@ -17,12 +17,11 @@ export class BabelPluginClass implements Plugin {
 
 
     /**
-     *
-     *
-     * @type {RegExp}
-     * @memberOf FuseBoxHTMLPlugin
+     * We can add tsx and ts here as well
+     * Because Babel won't capture it just being a Plugin
+     * Typescript files are handled before any external plugin is executed
      */
-    public test: RegExp = /\.js(x)?$/;
+    public test: RegExp = /\.(j|t)s(x)?$/;
     public context: WorkFlowContext;
     private limit2project: boolean = true;
 
@@ -89,16 +88,17 @@ export class BabelPluginClass implements Plugin {
             let result = babelCore.transform(file.contents, this.config);
             // By default we would want to limit the babel 
             // And use acorn instead (it's faster)
-            if (result.map) {
 
+            if (result.ast) {
                 file.analysis.loadAst(result.ast);
                 file.analysis.analyze();
                 file.contents = result.code;
-                let sm = result.map;
-                sm.file = file.info.fuseBoxPath;
-                sm.sources = [file.info.fuseBoxPath];
-                file.sourceMap = JSON.stringify(sm);
-
+                if (result.map) {
+                    let sm = result.map;
+                    sm.file = file.info.fuseBoxPath;
+                    sm.sources = [file.info.fuseBoxPath];
+                    file.sourceMap = JSON.stringify(sm);
+                }
                 if (this.context.useCache) {
                     this.context.emitJavascriptHotReload(file);
                     this.context.cache.writeStaticCache(file, file.sourceMap);

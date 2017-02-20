@@ -1,4 +1,4 @@
-import { ensurePublicExtension } from './Utils';
+import { ensurePublicExtension, Concat } from './Utils';
 import { BundleData } from './Arithmetic';
 import { ModuleCollection } from "./ModuleCollection";
 import { WorkFlowContext } from "./WorkflowContext";
@@ -6,8 +6,6 @@ import { Config } from "./Config";
 import { File } from "./File";
 import * as path from 'path';
 import * as fs from 'fs';
-
-const Concat = require("concat-with-sourcemaps");
 
 /**
  * 
@@ -30,7 +28,7 @@ export class BundleSource {
      * @type {*}
      * @memberOf BundleSource
      */
-    private concat: any;
+    private concat: Concat;
 
     private collectionSource: any;
 
@@ -52,7 +50,7 @@ export class BundleSource {
      * @memberOf BundleSource
      */
     public init() {
-        this.concat.add(null, "(function(FuseBox){");
+        this.concat.add(null, "(function(FuseBox){FuseBox.$fuse$=FuseBox;");
     }
 
     /**
@@ -123,14 +121,15 @@ export class BundleSource {
      * @memberOf BundleSource
      */
     public addFile(file: File) {
-        if (file.info.isRemoteFile || file.notFound) {
+        if (file.info.isRemoteFile || file.notFound
+            || file.collection && file.collection.acceptFiles === false) {
             return;
         }
 
         this.collectionSource.add(null,
             `___scope___.file("${file.info.fuseBoxPath}", function(exports, require, module, __filename, __dirname){ 
 ${file.headerContent ? file.headerContent.join("\n") : ""}`);
-        this.collectionSource.add(null, file.alternativeContent || file.contents, file.sourceMap);
+        this.collectionSource.add(null, file.alternativeContent !== undefined ? file.alternativeContent : file.contents, file.sourceMap);
         this.collectionSource.add(null, "});");
     }
 
@@ -150,6 +149,12 @@ ${file.headerContent ? file.headerContent.join("\n") : ""}`);
             entry = ensurePublicExtension(entry);
         }
         let mainEntry;
+
+        // handle server bundle
+
+        if (context.serverBundle) {
+            this.concat.add(null, `FuseBox.isServer = true;`);
+        }
 
         // Handle globals
         if (context.globals) {
@@ -177,10 +182,14 @@ ${file.headerContent ? file.headerContent.join("\n") : ""}`);
         if (mainEntry) {
             this.concat.add(null, `FuseBox.main("${mainEntry}");`);
         }
+        if (context.defaultPackageName !== "default") {
+            this.concat.add(null, `FuseBox.defaultPackageName = ${JSON.stringify(context.defaultPackageName)};`);
+        }
+
         this.concat.add(null, "})");
 
         if (context.standaloneBundle) {
-            let fuseboxLibFile = path.join(Config.ASSETS_DIR, "frontend", "fusebox.min.js");
+            let fuseboxLibFile = path.join(Config.FUSEBOX_MODULES, "fuse-box-loader-api", "fusebox.min.js");
             let wrapper = fs.readFileSync(fuseboxLibFile).toString();
             this.concat.add(null, `(${wrapper})`);
         } else {
