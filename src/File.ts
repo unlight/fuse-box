@@ -106,6 +106,8 @@ export class File {
 
     public groupMode = false;
 
+    public groupHandler: Plugin;
+
     /**
      * Creates an instance of File.
      * 
@@ -159,7 +161,7 @@ export class File {
 
 
     public asyncResolve(promise: Promise<any>) {
-        this.resolving.push(promise);
+        this.context.pendingPromises.push(promise);
     }
 
     /**
@@ -187,13 +189,12 @@ export class File {
         if (this.context.plugins) {
             let target: Plugin;
             let index = 0;
-
             while (!target && index < this.context.plugins.length) {
                 let item = this.context.plugins[index];
                 let itemTest: RegExp;
                 if (Array.isArray(item)) {
                     let el = item[0];
-                    // for some reason on window it gives false sometimes...
+                    // for some reason on windows OS it gives false sometimes...
                     // if (el instanceof RegExp) {
                     //     itemTest = el;
                     // }
@@ -212,6 +213,7 @@ export class File {
             }
 
             if (target) {
+
                 if (Array.isArray(target)) {
                     let context = this.context;
                     if (context.useCache) {
@@ -230,6 +232,7 @@ export class File {
                             return plugin.transformGroup.apply(plugin, [this]);
                         }
                         if (utils.isFunction(plugin.transform)) {
+                            this.context.debugPlugin(plugin, `Captured ${this.info.fuseBoxPath}`);
                             return plugin.transform.apply(plugin, [this]);
                         }
                     }));
@@ -248,6 +251,7 @@ export class File {
                         return this.asyncResolve(target.transformGroup.apply(target, [this]));
                     }
                     if (utils.isFunction(target.transform)) {
+                        this.context.debugPlugin(target, `Captured ${this.info.fuseBoxPath}`);
                         return this.asyncResolve(target.transform.apply(target, [this]));
                     }
                 }
@@ -311,6 +315,7 @@ export class File {
         }
 
         if (/\.ts(x)?$/.test(this.absPath)) {
+            this.context.debug("Typescript", `Captured  ${this.info.fuseBoxPath}`)
             return this.handleTypescript();
         }
 
@@ -335,6 +340,8 @@ export class File {
      * @memberOf File
      */
     private handleTypescript() {
+        const debug = (str: string) => this.context.debug("Typescript", str);
+
         if (this.context.useCache) {
             let cached = this.context.cache.getStaticCache(this);
             if (cached) {
@@ -344,6 +351,7 @@ export class File {
                 if (cached.headerContent) {
                     this.headerContent = cached.headerContent;
                 }
+                debug(`From cache ${this.info.fuseBoxPath}`)
                 this.analysis.dependencies = cached.dependencies;
                 this.tryPlugins();
                 return;
@@ -354,6 +362,7 @@ export class File {
         this.loadContents();
         // Calling it before transpileModule on purpose
         this.tryTypescriptPlugins();
+        debug(`Transpile ${this.info.fuseBoxPath}`)
         let result = ts.transpileModule(this.contents, this.getTranspilationConfig());
 
         if (result.sourceMapText && this.context.sourceMapConfig) {
@@ -383,6 +392,16 @@ export class File {
             });
             this.context.cache.writeStaticCache(this, this.sourceMap);
         }
+    }
+
+    public generateCorrectSourceMap(fname?: string) {
+        if (this.sourceMap) {
+            let jsonSourceMaps = JSON.parse(this.sourceMap);
+            jsonSourceMaps.file = this.info.fuseBoxPath;
+            jsonSourceMaps.sources = [fname || this.info.fuseBoxPath];
+            this.sourceMap = JSON.stringify(jsonSourceMaps);
+        }
+        return this.sourceMap;
     }
 
     /**
