@@ -1,11 +1,14 @@
 import { ModuleCollection } from "./ModuleCollection";
+import { WorkFlowContext } from './WorkflowContext';
 export declare class Log {
-    printLog: boolean;
+    context: WorkFlowContext;
     private timeStart;
     private totalSize;
-    constructor(printLog: boolean);
+    private printLog;
+    constructor(context: WorkFlowContext);
     echo(str: string): void;
     echoStatus(str: string): void;
+    echoWarning(str: string): void;
     echoDefaultCollection(collection: ModuleCollection, contents: string): void;
     echoCollection(collection: ModuleCollection, contents: string): void;
     end(header?: string): void;

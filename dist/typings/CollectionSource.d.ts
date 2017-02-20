@@ -4,5 +4,5 @@ export declare class CollectionSource {
     context: WorkFlowContext;
     constructor(context: WorkFlowContext);
     get(collection: ModuleCollection): Promise<string>;
-    private resolveFiles(files);
+    private filterFiles(files);
 }

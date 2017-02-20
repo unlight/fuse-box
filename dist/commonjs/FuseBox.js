@@ -13,6 +13,8 @@ const path = require("path");
 const realm_utils_1 = require("realm-utils");
 const Config_1 = require("./Config");
 const BundleTestRunner_1 = require("./testRunner/BundleTestRunner");
+const process = require("process");
+const HeaderImport_1 = require("./HeaderImport");
 const appRoot = require("app-root-path");
 class FuseBox {
     constructor(opts) {
@@ -24,6 +26,10 @@ class FuseBox {
         if (opts.homeDir) {
             homeDir = path.isAbsolute(opts.homeDir) ? opts.homeDir : path.join(appRoot.path, opts.homeDir);
         }
+        if (opts.debug !== undefined) {
+            this.context.debugMode = opts.debug;
+        }
+        this.context.debugMode = opts.debug !== undefined ? opts.debug : Utils_1.contains(process.argv, '--debug');
         if (opts.modulesFolder) {
             this.context.customModulesFolder =
                 path.isAbsolute(opts.modulesFolder)
@@ -47,6 +53,12 @@ class FuseBox {
         }
         if (opts.log !== undefined) {
             this.context.doLog = opts.log ? true : false;
+        }
+        if (realm_utils_1.utils.isPlainObject(opts.imports)) {
+            for (let varName in opts.imports) {
+                const pkgName = opts.imports[varName];
+                HeaderImport_1.nativeModules.add(new HeaderImport_1.HeaderImport(varName, pkgName));
+            }
         }
         if (opts.globals) {
             this.context.globals = opts.globals;

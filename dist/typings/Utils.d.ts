@@ -1,3 +1,15 @@
+/// <reference types="node" />
+export declare type Concat = {
+    add(fileName: string | null, content: string | Buffer, sourceMap?: string): void;
+    content: Buffer;
+    sourceMap: string;
+};
+export declare type ConcatModule = {
+    new (generateSourceMap: boolean, outputFileName: string, seperator: string): Concat;
+};
+export declare const Concat: ConcatModule;
+export declare function contains(array: any[], obj: any): boolean;
+export declare function write(fileName: string, contents: any): Promise<{}>;
 export declare function camelCase(str: string): string;
 export declare function parseQuery(qstr: any): Map<string, string>;
 /**

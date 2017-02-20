@@ -3,18 +3,17 @@ const Utils_1 = require("./Utils");
 const Config_1 = require("./Config");
 const path = require("path");
 const fs = require("fs");
-exports.Concat = require("concat-with-sourcemaps");
 class BundleSource {
     constructor(context) {
         this.context = context;
         this.standalone = false;
-        this.concat = new exports.Concat(true, "", "\n");
+        this.concat = new Utils_1.Concat(true, "", "\n");
     }
     init() {
         this.concat.add(null, "(function(FuseBox){FuseBox.$fuse$=FuseBox;");
     }
     createCollection(collection) {
-        this.collectionSource = new exports.Concat(true, collection.name, "\n");
+        this.collectionSource = new Utils_1.Concat(true, collection.name, "\n");
     }
     addContentToCurrentCollection(data) {
         if (this.collectionSource) {
@@ -50,7 +49,7 @@ class BundleSource {
         }
         this.collectionSource.add(null, `___scope___.file("${file.info.fuseBoxPath}", function(exports, require, module, __filename, __dirname){ 
 ${file.headerContent ? file.headerContent.join("\n") : ""}`);
-        this.collectionSource.add(null, file.alternativeContent || file.contents, file.sourceMap);
+        this.collectionSource.add(null, file.alternativeContent !== undefined ? file.alternativeContent : file.contents, file.sourceMap);
         this.collectionSource.add(null, "});");
     }
     finalize(bundleData) {

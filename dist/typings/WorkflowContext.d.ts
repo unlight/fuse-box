@@ -15,18 +15,11 @@ export declare type PluginMethodName = 'init' | 'preBuild' | 'preBundle' | 'bund
  */
 export interface Plugin {
     test?: RegExp;
-    init?: {
-        (context: WorkFlowContext);
-    };
-    transform?: {
-        (file: File, ast?: any);
-    };
-    transformGroup?: {
-        (file: File);
-    };
-    onTypescriptTransform?: {
-        (file: File);
-    };
+    opts?: any;
+    init?(context: WorkFlowContext): any;
+    transform?(file: File, ast?: any): any;
+    transformGroup?(file: File): any;
+    onTypescriptTransform?(file: File): any;
     bundleStart?(context: WorkFlowContext): any;
     bundleEnd?(context: WorkFlowContext): any;
     /**
@@ -47,6 +40,7 @@ export declare class WorkFlowContext {
     defaultPackageName: string;
     transformTypescript?: (contents: string) => string;
     ignoreGlobal: string[];
+    pendingPromises: Promise<any>[];
     /**
      * Explicitly target bundle to server
      */
@@ -72,11 +66,17 @@ export declare class WorkFlowContext {
     sourceMapConfig: any;
     outFile: string;
     initialLoad: boolean;
+    debugMode: boolean;
     log: Log;
     pluginTriggers: Map<string, Set<String>>;
     storage: Map<string, any>;
     initCache(): void;
+    getHeaderImportsConfiguration(): void;
     emitJavascriptHotReload(file: File): void;
+    debug(group: string, text: string): void;
+    warning(str: string): void;
+    fatal(str: string): void;
+    debugPlugin(plugin: Plugin, text: string): void;
     isShimed(name: string): boolean;
     /**
      * Resets significant class members
@@ -88,7 +88,7 @@ export declare class WorkFlowContext {
      * Create a new file group
      * Mocks up file
      */
-    createFileGroup(name: string): File;
+    createFileGroup(name: string, collection: ModuleCollection, handler: Plugin): File;
     getFileGroup(name: string): File;
     allowExtension(ext: string): void;
     setHomeDir(dir: string): void;

@@ -2,6 +2,7 @@
 const File_1 = require("./File");
 const PathMaster_1 = require("./PathMaster");
 const realm_utils_1 = require("realm-utils");
+const PrettyError = require('pretty-error');
 class ModuleCollection {
     constructor(context, name, info) {
         this.context = context;
@@ -10,6 +11,7 @@ class ModuleCollection {
         this.nodeModules = new Map();
         this.traversed = false;
         this.acceptFiles = true;
+        this.pendingPromises = [];
         this.dependencies = new Map();
         this.entryResolved = false;
         this.cached = false;
@@ -46,9 +48,10 @@ class ModuleCollection {
         return realm_utils_1.each(data.including, (withDeps, modulePath) => {
             let file = new File_1.File(this.context, this.pm.init(modulePath));
             return this.resolve(file);
-        }).then(() => {
-            return this.onDefaultProjectDone();
-        }).then(x => {
+        })
+            .then(() => this.resolvePending())
+            .then(() => this.transformGroups())
+            .then(() => {
             return this.context.useCache ? this.context.cache.resolve(this.toBeResolved) : this.toBeResolved;
         }).then(toResolve => {
             return realm_utils_1.each(toResolve, (file) => {
@@ -56,6 +59,15 @@ class ModuleCollection {
             });
         }).then(() => {
             return this.context.cache.buildMap(this);
+        }).catch(e => {
+            var pe = new PrettyError();
+            console.log("");
+            console.log(pe.render(e));
+        });
+    }
+    resolvePending() {
+        return Promise.all(this.context.pendingPromises).then(() => {
+            this.context.pendingPromises = [];
         });
     }
     resolveNodeModule(file) {
@@ -84,11 +96,23 @@ class ModuleCollection {
             ? collection.resolve(new File_1.File(this.context, collection.pm.init(file.info.absPath)))
             : collection.resolveEntry();
     }
-    onDefaultProjectDone() {
-        this.context.fileGroups.forEach(group => {
+    transformGroups() {
+        const promises = [];
+        this.context.fileGroups.forEach((group, name) => {
             this.dependencies.set(group.info.fuseBoxPath, group);
-            group.tryPlugins();
+            if (group.groupHandler) {
+                if (realm_utils_1.utils.isFunction(group.groupHandler.transformGroup)) {
+                    promises.push(new Promise((resolve, reject) => {
+                        const result = group.groupHandler.transformGroup(group);
+                        if (realm_utils_1.utils.isPromise(result)) {
+                            return result.then(resolve).catch(reject);
+                        }
+                        return resolve();
+                    }));
+                }
+            }
         });
+        return Promise.all(promises);
     }
     resolve(file, shouldIgnoreDeps) {
         file.collection = this;

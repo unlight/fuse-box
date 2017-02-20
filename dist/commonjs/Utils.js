@@ -7,6 +7,22 @@ const MBLACKLIST = [
     "freelist",
     "sys"
 ];
+exports.Concat = require("concat-with-sourcemaps");
+function contains(array, obj) {
+    return array && array.indexOf(obj) > -1;
+}
+exports.contains = contains;
+function write(fileName, contents) {
+    return new Promise((resolve, reject) => {
+        fs.writeFile(fileName, contents, (e) => {
+            if (e) {
+                return reject(e);
+            }
+            return resolve();
+        });
+    });
+}
+exports.write = write;
 function camelCase(str) {
     let DEFAULT_REGEX = /[-_]+(.)?/g;
     function toUpper(match, group1) {

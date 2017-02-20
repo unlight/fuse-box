@@ -18,9 +18,9 @@ export declare class CSSPluginClass implements Plugin {
     test: RegExp;
     private raw;
     private minify;
+    opts: any;
     private serve;
     private writeOptions;
-    private bundle;
     constructor(opts: any);
     /**
      *
@@ -31,6 +31,8 @@ export declare class CSSPluginClass implements Plugin {
      */
     init(context: WorkFlowContext): void;
     bundleStart(context: WorkFlowContext): void;
+    inject(file: File, options: any, alternative?: boolean): void;
+    transformGroup(group: File): Promise<{}>;
     /**
      *
      *
@@ -38,7 +40,7 @@ export declare class CSSPluginClass implements Plugin {
      *
      * @memberOf FuseBoxCSSPlugin
      */
-    transform(file: File): Promise<any[]>;
+    transform(file: File): Promise<{}>;
     private minifyContents(contents);
 }
 export declare const CSSPlugin: (opts: any) => CSSPluginClass;

@@ -1,5 +1,4 @@
 import { FuseBox } from '../';
-import * as express from "express";
 export interface HTTPServerOptions {
     /** Defaults to 4444 if not specified */
     port?: number;
@@ -12,7 +11,7 @@ export interface HTTPServerOptions {
 export declare class HTTPServer {
     private fuse;
     static start(opts: any, fuse: FuseBox): HTTPServer;
-    app: express.Application;
+    app: any;
     opts: HTTPServerOptions;
     constructor(fuse: FuseBox);
     launch(opts: HTTPServerOptions): void;

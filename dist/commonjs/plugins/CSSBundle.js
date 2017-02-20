@@ -5,6 +5,7 @@ class CSSBundleClass {
     }
     init(context) { }
     transformGroup(group) {
+        console.log("Transform group");
     }
 }
 exports.CSSBundleClass = CSSBundleClass;

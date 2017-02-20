@@ -15,6 +15,7 @@ class WorkFlowContext {
         this.sourceChangedEmitter = new EventEmitter_1.EventEmitter();
         this.defaultPackageName = "default";
         this.ignoreGlobal = [];
+        this.pendingPromises = [];
         this.serverBundle = false;
         this.nodeModules = new Map();
         this.libPaths = new Map();
@@ -24,10 +25,13 @@ class WorkFlowContext {
         this.tsMode = false;
         this.standaloneBundle = true;
         this.initialLoad = true;
-        this.log = new Log_1.Log(this.doLog);
+        this.debugMode = false;
+        this.log = new Log_1.Log(this);
     }
     initCache() {
         this.cache = new ModuleCache_1.ModuleCache(this);
+    }
+    getHeaderImportsConfiguration() {
     }
     emitJavascriptHotReload(file) {
         this.sourceChangedEmitter.emit({
@@ -36,6 +40,21 @@ class WorkFlowContext {
             path: file.info.fuseBoxPath,
         });
     }
+    debug(group, text) {
+        if (this.debugMode) {
+            this.log.echo(`${group} : ${text}`);
+        }
+    }
+    warning(str) {
+        return this.log.echoWarning(str);
+    }
+    fatal(str) {
+        throw new Error(str);
+    }
+    debugPlugin(plugin, text) {
+        const name = plugin.constructor && plugin.constructor.name ? plugin.constructor.name : "Unknown";
+        this.debug(name, text);
+    }
     isShimed(name) {
         if (!this.shim) {
             return false;
@@ -43,7 +62,7 @@ class WorkFlowContext {
         return this.shim[name] !== undefined;
     }
     reset() {
-        this.log = new Log_1.Log(this.doLog);
+        this.log = new Log_1.Log(this);
         this.storage = new Map();
         this.source = new BundleSource_1.BundleSource(this);
         this.nodeModules = new Map();
@@ -57,14 +76,16 @@ class WorkFlowContext {
     getItem(key) {
         return this.storage.get(key);
     }
-    createFileGroup(name) {
+    createFileGroup(name, collection, handler) {
         let info = {
             fuseBoxPath: name,
             absPath: name,
         };
         let file = new File_1.File(this, info);
+        file.collection = collection;
         file.contents = "";
         file.groupMode = true;
+        file.groupHandler = handler;
         this.fileGroups.set(name, file);
         return file;
     }

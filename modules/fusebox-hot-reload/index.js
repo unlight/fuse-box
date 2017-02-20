@@ -1,3 +1,6 @@
+/**
+ * @module listens to `source-changed` socket events and actions hot reload
+ */
 "use strict";
 var Client = require("fusebox-websocket").SocketClient;
 exports.connect = function (port) {
@@ -12,6 +15,9 @@ exports.connect = function (port) {
     console.log("connecting...");
     client.on("source-changed", function (data) {
         console.log("Updating \"" + data.path + "\" ...");
+        /**
+         * If a plugin handles this request then we don't have to do anything
+         **/
         for (var index = 0; index < FuseBox.plugins.length; index++) {
             var plugin = FuseBox.plugins[index];
             if (plugin.hmrUpdate && plugin.hmrUpdate(data)) {

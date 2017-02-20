@@ -1,17 +1,8 @@
-/// <reference types="node" />
+import { Concat } from './Utils';
 import { BundleData } from './Arithmetic';
 import { ModuleCollection } from "./ModuleCollection";
 import { WorkFlowContext } from "./WorkflowContext";
 import { File } from "./File";
-export declare type Concat = {
-    add(fileName: string | null, content: string | Buffer, sourceMap?: string): void;
-    content: Buffer;
-    sourceMap: string;
-};
-export declare type ConcatModule = {
-    new (generateSourceMap: boolean, outputFileName: string, seperator: string): Concat;
-};
-export declare const Concat: ConcatModule;
 /**
  *
  *

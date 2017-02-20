@@ -41,7 +41,7 @@ class File {
         return name;
     }
     asyncResolve(promise) {
-        this.resolving.push(promise);
+        this.context.pendingPromises.push(promise);
     }
     tryTypescriptPlugins() {
         if (this.context.plugins) {
@@ -93,6 +93,7 @@ class File {
                             return plugin.transformGroup.apply(plugin, [this]);
                         }
                         if (realm_utils_1.utils.isFunction(plugin.transform)) {
+                            this.context.debugPlugin(plugin, `Captured ${this.info.fuseBoxPath}`);
                             return plugin.transform.apply(plugin, [this]);
                         }
                     }));
@@ -112,6 +113,7 @@ class File {
                         return this.asyncResolve(target.transformGroup.apply(target, [this]));
                     }
                     if (realm_utils_1.utils.isFunction(target.transform)) {
+                        this.context.debugPlugin(target, `Captured ${this.info.fuseBoxPath}`);
                         return this.asyncResolve(target.transform.apply(target, [this]));
                     }
                 }
@@ -149,6 +151,7 @@ class File {
             return;
         }
         if (/\.ts(x)?$/.test(this.absPath)) {
+            this.context.debug("Typescript", `Captured  ${this.info.fuseBoxPath}`);
             return this.handleTypescript();
         }
         if (/\.js(x)?$/.test(this.absPath)) {
@@ -163,6 +166,7 @@ class File {
         }
     }
     handleTypescript() {
+        const debug = (str) => this.context.debug("Typescript", str);
         if (this.context.useCache) {
             let cached = this.context.cache.getStaticCache(this);
             if (cached) {
@@ -172,6 +176,7 @@ class File {
                 if (cached.headerContent) {
                     this.headerContent = cached.headerContent;
                 }
+                debug(`From cache ${this.info.fuseBoxPath}`);
                 this.analysis.dependencies = cached.dependencies;
                 this.tryPlugins();
                 return;
@@ -180,6 +185,7 @@ class File {
         const ts = require("typescript");
         this.loadContents();
         this.tryTypescriptPlugins();
+        debug(`Transpile ${this.info.fuseBoxPath}`);
         let result = ts.transpileModule(this.contents, this.getTranspilationConfig());
         if (result.sourceMapText && this.context.sourceMapConfig) {
             let jsonSourceMaps = JSON.parse(result.sourceMapText);
@@ -203,6 +209,15 @@ class File {
             });
             this.context.cache.writeStaticCache(this, this.sourceMap);
         }
+    }
+    generateCorrectSourceMap(fname) {
+        if (this.sourceMap) {
+            let jsonSourceMaps = JSON.parse(this.sourceMap);
+            jsonSourceMaps.file = this.info.fuseBoxPath;
+            jsonSourceMaps.sources = [fname || this.info.fuseBoxPath];
+            this.sourceMap = JSON.stringify(jsonSourceMaps);
+        }
+        return this.sourceMap;
     }
     getTranspilationConfig() {
         return Object.assign({}, this.context.getTypeScriptConfig(), {

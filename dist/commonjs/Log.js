@@ -4,10 +4,12 @@ const cursor = ansi(process.stdout);
 const prettysize = require("prettysize");
 const prettyTime = require("pretty-time");
 class Log {
-    constructor(printLog) {
-        this.printLog = printLog;
+    constructor(context) {
+        this.context = context;
         this.timeStart = process.hrtime();
         this.totalSize = 0;
+        this.printLog = true;
+        this.printLog = context.doLog;
     }
     echo(str) {
         let data = new Date();
@@ -29,6 +31,12 @@ class Log {
             cursor.write("\n");
             cursor.reset();
         }
+    }
+    echoWarning(str) {
+        cursor.red().write(`  → WARNING `)
+            .write(str);
+        cursor.write("\n");
+        cursor.reset();
     }
     echoDefaultCollection(collection, contents) {
         if (!this.printLog) {

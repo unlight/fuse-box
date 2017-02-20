@@ -14,12 +14,14 @@ export interface FuseBoxOptions {
         [packageName: string]: string;
     };
     plugins?: Plugin[];
+    imports?: any;
     shim?: any;
     standaloneBundle?: boolean;
     sourceMap?: any;
     ignoreGlobal?: string[];
     serverBundle?: boolean;
     outFile?: string;
+    debug?: boolean;
     files?: any;
     transformTypescript?: (contents: string) => string;
 }

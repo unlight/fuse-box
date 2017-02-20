@@ -6,7 +6,7 @@ const Utils_1 = require("../Utils");
 class HTTPServer {
     constructor(fuse) {
         this.fuse = fuse;
-        this.app = express.Application = express();
+        this.app = express();
     }
     static start(opts, fuse) {
         let server = new HTTPServer(fuse);

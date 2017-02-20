@@ -1,6 +1,6 @@
 import { ModuleCollection } from "./ModuleCollection";
 import { FileAnalysis } from "./FileAnalysis";
-import { WorkFlowContext } from './WorkflowContext';
+import { WorkFlowContext, Plugin } from './WorkflowContext';
 import { IPathInformation } from "./PathMaster";
 /**
  *
@@ -96,6 +96,7 @@ export declare class File {
     resolving: Promise<any>[];
     subFiles: File[];
     groupMode: boolean;
+    groupHandler: Plugin;
     /**
      * Creates an instance of File.
      *
@@ -165,6 +166,7 @@ export declare class File {
      * @memberOf File
      */
     private handleTypescript();
+    generateCorrectSourceMap(fname?: string): any;
     /**
      * Provides a file-specific transpilation config. This is needed so we can supply the filename to
      * the TypeScript compiler.

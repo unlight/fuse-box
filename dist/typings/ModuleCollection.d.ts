@@ -1,4 +1,4 @@
-import { File } from "./File";
+import { File } from './File';
 import { PathMaster, IPackageInformation } from "./PathMaster";
 import { WorkFlowContext } from "./WorkflowContext";
 import { BundleData } from "./Arithmetic";
@@ -21,6 +21,7 @@ export declare class ModuleCollection {
     nodeModules: Map<string, ModuleCollection>;
     traversed: boolean;
     acceptFiles: boolean;
+    pendingPromises: Promise<any>[];
     /**
      *
      *
@@ -150,6 +151,7 @@ export declare class ModuleCollection {
      * @memberOf ModuleCollection
      */
     collectBundle(data: BundleData): Promise<ModuleCollection>;
+    resolvePending(): Promise<void>;
     /**
      *
      *
@@ -159,7 +161,7 @@ export declare class ModuleCollection {
      * @memberOf ModuleCollection
      */
     resolveNodeModule(file: File): any;
-    onDefaultProjectDone(): void;
+    transformGroups(): Promise<any[]>;
     /**
      *
      *

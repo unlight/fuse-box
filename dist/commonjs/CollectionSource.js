@@ -11,33 +11,24 @@ class CollectionSource {
             });
         }
         this.context.source.createCollection(collection);
-        return this.resolveFiles(collection.dependencies).then(files => {
-            this.context.source.startCollection(collection);
-            files.forEach(f => {
-                this.context.source.addFile(f);
-            });
-            return this.context.source.endCollection(collection);
+        let files = this.filterFiles(collection.dependencies);
+        this.context.source.startCollection(collection);
+        files.forEach(f => {
+            this.context.source.addFile(f);
         });
+        return Promise.resolve(this.context.source.endCollection(collection));
     }
-    resolveFiles(files) {
-        let promises = [];
+    filterFiles(files) {
+        let filtered = [];
         files.forEach(file => {
-            file.resolving.forEach(p => {
-                promises.push(p);
-            });
+            if (file.isFuseBoxBundle) {
+                this.context.source.addContentToCurrentCollection(file.contents);
+            }
+            if (!file.info.isRemoteFile) {
+                filtered.push(file);
+            }
         });
-        return Promise.all(promises).then(() => {
-            let filtered = [];
-            files.forEach(file => {
-                if (file.isFuseBoxBundle) {
-                    this.context.source.addContentToCurrentCollection(file.contents);
-                }
-                if (!file.info.isRemoteFile) {
-                    filtered.push(file);
-                }
-            });
-            return filtered;
-        });
+        return filtered;
     }
 }
 exports.CollectionSource = CollectionSource;

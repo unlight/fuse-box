@@ -9,6 +9,7 @@ var __assign = (this && this.__assign) || Object.assign || function(t) {
 };
 const ASTTraverse_1 = require("./ASTTraverse");
 const PrettyError_1 = require("./PrettyError");
+const HeaderImport_1 = require("./HeaderImport");
 const acorn = require("acorn");
 const escodegen = require("escodegen");
 require("acorn-es7")(acorn);
@@ -48,10 +49,10 @@ class FileAnalysis {
         if (this.wasAnalysed || this.skipAnalysis) {
             return;
         }
+        const nativeImports = {};
+        const bannedImports = {};
         let out = {
             requires: [],
-            processDeclared: false,
-            processRequired: false,
             fuseBoxBundle: false,
             fuseBoxMain: undefined
         };
@@ -64,13 +65,22 @@ class FileAnalysis {
                     if (node.name === "$fuse$") {
                         this.fuseBoxVariable = parent.object.name;
                     }
-                }
-                if (node.type === "MemberExpression") {
-                    if (node.object && node.object.type === "Identifier") {
-                        if (node.object.name === "process") {
-                            out.processRequired = true;
+                    else {
+                        if (HeaderImport_1.nativeModules.has(node.name) && !bannedImports[node.name]) {
+                            if (parent && parent.type === "VariableDeclarator"
+                                && parent.id && parent.id.type === "Identifier" && parent.id.name === node.name) {
+                                delete nativeImports[node.name];
+                                if (!bannedImports[node.name]) {
+                                    bannedImports[node.name] = true;
+                                }
+                            }
+                            else {
+                                nativeImports[node.name] = HeaderImport_1.nativeModules.get(node.name);
+                            }
                         }
                     }
+                }
+                if (node.type === "MemberExpression") {
                     if (parent.type === "CallExpression") {
                         if (node.object && node.object.type === "Identifier" && node.object.name === this.fuseBoxVariable) {
                             if (node.property && node.property.type === "Identifier") {
@@ -85,11 +95,6 @@ class FileAnalysis {
                                 }
                             }
                         }
-                    }
-                }
-                if (node.type === "VariableDeclarator") {
-                    if (node.id && node.id.type === "Identifier" && node.id.name === "process") {
-                        out.processDeclared = true;
                     }
                 }
                 if (node.type === "ImportDeclaration") {
@@ -110,10 +115,11 @@ class FileAnalysis {
         out.requires.forEach(name => {
             this.dependencies.push(name);
         });
-        if (!out.processDeclared) {
-            if (out.processRequired) {
-                this.dependencies.push("process");
-                this.file.addHeaderContent(`var process = require("process");`);
+        for (let nativeImportName in nativeImports) {
+            if (nativeImports.hasOwnProperty(nativeImportName)) {
+                const nativeImport = nativeImports[nativeImportName];
+                this.dependencies.push(nativeImport.pkg);
+                this.file.addHeaderContent(`/* fuse:injection: */ var ${nativeImport.variable} = require("${nativeImport.pkg}");`);
             }
         }
         if (out.fuseBoxBundle) {

@@ -39,6 +39,7 @@ var SocketClient = (function () {
     SocketClient.prototype.error = function (data) {
         this.emitter.emit("error", data);
     };
+    /** Wires up the socket client messages to be emitted on our event emitter */
     SocketClient.prototype.bindEvents = function (fn) {
         var _this = this;
         this.client.onopen = function (event) {
