@@ -14,7 +14,6 @@ import { Config } from "./Config";
 import { BundleTestRunner } from "./testRunner/BundleTestRunner";
 import * as process from 'process';
 import { nativeModules, HeaderImport } from './HeaderImport';
-
 const appRoot = require("app-root-path");
 
 export interface FuseBoxOptions {
@@ -35,6 +34,7 @@ export interface FuseBoxOptions {
     outFile?: string;
     debug?: boolean;
     files?: any;
+    alias?: any;
     transformTypescript?: (contents: string) => string;
 }
 
@@ -109,6 +109,11 @@ export class FuseBox {
             this.context.doLog = opts.log ? true : false;
         }
 
+        if (opts.alias) {
+            this.context.aliasCollection = opts.alias;
+            this.context.experimentalAliasEnabled = true;
+        }
+
         if (utils.isPlainObject(opts.imports)) {
             for (let varName in opts.imports) {
                 const pkgName = opts.imports[varName];
@@ -137,6 +142,7 @@ export class FuseBox {
         if (opts.ignoreGlobal) {
             this.context.ignoreGlobal = opts.ignoreGlobal;
         }
+
 
         if (opts.outFile) {
             this.context.outFile = opts.outFile;
@@ -195,7 +201,6 @@ export class FuseBox {
     public process(bundleData: BundleData, bundleReady?: () => any) {
         let bundleCollection = new ModuleCollection(this.context, this.context.defaultPackageName);
         bundleCollection.pm = new PathMaster(this.context, bundleData.homeDir);
-
         // swiching on typescript compiler
         if (bundleData.typescriptMode) {
             this.context.tsMode = true;

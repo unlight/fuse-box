@@ -117,6 +117,10 @@ export class WorkFlowContext {
 
     public storage: Map<string, any>;
 
+    public aliasCollection: any;
+
+    public experimentalAliasEnabled = false;
+
 
     public initCache() {
         this.cache = new ModuleCache(this);
@@ -128,9 +132,13 @@ export class WorkFlowContext {
 
     }
     public emitJavascriptHotReload(file: File) {
+        let content = file.contents;
+        if (file.headerContent) {
+            content = file.headerContent.join("\n") + "\n" + content;
+        }
         this.sourceChangedEmitter.emit({
             type: "js",
-            content: file.contents,
+            content: content,
             path: file.info.fuseBoxPath,
         });
     }
