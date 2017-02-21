@@ -1,10 +1,16 @@
 import { ASTTraverse } from "./ASTTraverse";
 import { PrettyError } from "./PrettyError";
 import { File } from "./File";
+import { nativeModules, HeaderImport } from './HeaderImport';
+import { replaceAliasRequireStatement } from './Utils';
+import * as path from 'path';
 const acorn = require("acorn");
 const escodegen = require("escodegen");
 require("acorn-es7")(acorn);
 require("acorn-jsx/inject")(acorn);
+
+
+
 
 /**
  * Makes static analysis on the code
@@ -29,7 +35,7 @@ export class FileAnalysis {
     private skipAnalysis = false;
     private fuseBoxVariable = "FuseBox";
 
-
+    private requiresRegeneration = false;
 
     /**
      * A list of dependencies 
@@ -91,17 +97,46 @@ export class FileAnalysis {
         }
     }
 
+
+    public handleAliasReplacement(requireStatement: string): string {
+
+        if (!this.file.context.experimentalAliasEnabled) {
+            return requireStatement;
+        }
+        // enable aliases only for the current project
+        if (this.file.collection.name !== this.file.context.defaultPackageName) {
+            return requireStatement;
+        }
+
+        const aliasCollection = this.file.context.aliasCollection;
+
+        for (let alias in aliasCollection) {
+            if (aliasCollection.hasOwnProperty(alias)) {
+                const aliasReplacement = aliasCollection[alias];
+                if (path.isAbsolute(aliasReplacement)) {
+                    // dying in agony
+                    this.file.context.fatal(`Can't use absolute paths with alias "${alias}"`)
+                }
+                if (requireStatement.indexOf(alias) === 0) {
+                    requireStatement = replaceAliasRequireStatement(requireStatement, alias, aliasReplacement);
+                    // only if we need it
+                    this.requiresRegeneration = true;
+                }
+            }
+        }
+        return requireStatement;
+    }
+
     public analyze() {
         // We don't want to make analysis 2 times
         if (this.wasAnalysed || this.skipAnalysis) {
             return;
         }
-
+        const nativeImports = {};
+        const bannedImports = {};
 
         let out = {
             requires: [],
-            processDeclared: false,
-            processRequired: false,
             fuseBoxBundle: false,
             fuseBoxMain: undefined
         };
@@ -113,16 +148,26 @@ export class FileAnalysis {
         ASTTraverse.traverse(this.ast, {
             pre: (node, parent, prop, idx) => {
                 if (node.type === "Identifier") {
+
                     if (node.name === "$fuse$") {
                         this.fuseBoxVariable = parent.object.name;
-                    }
-                }
-                if (node.type === "MemberExpression") {
-                    if (node.object && node.object.type === "Identifier") {
-                        if (node.object.name === "process") {
-                            out.processRequired = true;
+                    } else {
+
+                        if (nativeModules.has(node.name) && !bannedImports[node.name]) {
+                            if (parent && parent.type === "VariableDeclarator"
+                                && parent.id && parent.id.type === "Identifier" && parent.id.name === node.name) {
+                                delete nativeImports[node.name];
+                                if (!bannedImports[node.name]) {
+                                    bannedImports[node.name] = true;
+                                }
+                            } else {
+                                nativeImports[node.name] = nativeModules.get(node.name);
+                            }
                         }
                     }
+                }
+
+                if (node.type === "MemberExpression") {
                     if (parent.type === "CallExpression") {
                         if (node.object && node.object.type === "Identifier" && node.object.name === this.fuseBoxVariable) {
                             if (node.property && node.property.type === "Identifier") {
@@ -143,11 +188,7 @@ export class FileAnalysis {
                         }
                     }
                 }
-                if (node.type === "VariableDeclarator") {
-                    if (node.id && node.id.type === "Identifier" && node.id.name === "process") {
-                        out.processDeclared = true;
-                    }
-                }
+
                 if (node.type === "ImportDeclaration") {
                     if (node.source && isString(node.source)) {
                         out.requires.push(node.source.value);
@@ -158,7 +199,9 @@ export class FileAnalysis {
                     if (node.callee.type === "Identifier" && node.callee.name === "require") {
                         let arg1 = node.arguments[0];
                         if (isString(arg1)) {
-                            out.requires.push(arg1.value);
+                            let requireStatement = this.handleAliasReplacement(arg1.value);
+                            arg1.value = requireStatement;
+                            out.requires.push(requireStatement);
                         }
                     }
                 }
@@ -168,10 +211,12 @@ export class FileAnalysis {
         out.requires.forEach(name => {
             this.dependencies.push(name);
         });
-        if (!out.processDeclared) {
-            if (out.processRequired) {
-                this.dependencies.push("process");
-                this.file.addHeaderContent(`var process = require("process");`);
+        // inject imports
+        for (let nativeImportName in nativeImports) {
+            if (nativeImports.hasOwnProperty(nativeImportName)) {
+                const nativeImport: HeaderImport = nativeImports[nativeImportName];
+                this.dependencies.push(nativeImport.pkg);
+                this.file.addHeaderContent(`/* fuse:injection: */ var ${nativeImport.variable} = require("${nativeImport.pkg}");`);
             }
         }
 
@@ -195,6 +240,10 @@ export class FileAnalysis {
             }
         }
         this.wasAnalysed = true;
+        // regenerate content
+        if (this.requiresRegeneration) {
+            this.file.contents = escodegen.generate(this.ast);
+        }
     }
 
     /**
