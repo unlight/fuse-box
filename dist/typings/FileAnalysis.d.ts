@@ -20,6 +20,7 @@ export declare class FileAnalysis {
     private wasAnalysed;
     private skipAnalysis;
     private fuseBoxVariable;
+    private requiresRegeneration;
     /**
      * A list of dependencies
      *
@@ -53,6 +54,7 @@ export declare class FileAnalysis {
      * @memberOf FileAST
      */
     parseUsingAcorn(options?: any): void;
+    handleAliasReplacement(requireStatement: string): string;
     analyze(): void;
     /**
      * Removes a footer with FuseBox API

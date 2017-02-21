@@ -23,6 +23,7 @@ export interface FuseBoxOptions {
     outFile?: string;
     debug?: boolean;
     files?: any;
+    alias?: any;
     transformTypescript?: (contents: string) => string;
 }
 /**

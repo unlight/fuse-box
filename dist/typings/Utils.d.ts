@@ -9,6 +9,7 @@ export declare type ConcatModule = {
 };
 export declare const Concat: ConcatModule;
 export declare function contains(array: any[], obj: any): boolean;
+export declare function replaceAliasRequireStatement(requireStatement: string, aliasName: string, aliasReplacement: string): string;
 export declare function write(fileName: string, contents: any): Promise<{}>;
 export declare function camelCase(str: string): string;
 export declare function parseQuery(qstr: any): Map<string, string>;

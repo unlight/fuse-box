@@ -70,6 +70,8 @@ export declare class WorkFlowContext {
     log: Log;
     pluginTriggers: Map<string, Set<String>>;
     storage: Map<string, any>;
+    aliasCollection: any;
+    experimentalAliasEnabled: boolean;
     initCache(): void;
     getHeaderImportsConfiguration(): void;
     emitJavascriptHotReload(file: File): void;

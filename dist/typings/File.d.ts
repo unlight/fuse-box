@@ -106,6 +106,7 @@ export declare class File {
      * @memberOf File
      */
     constructor(context: WorkFlowContext, info: IPathInformation);
+    static createByName(collection: ModuleCollection, name: string): File;
     addProperty(key: string, obj: any): void;
     getProperty(key: string): any;
     hasSubFiles(): boolean;

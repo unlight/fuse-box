@@ -10,6 +10,8 @@ var __assign = (this && this.__assign) || Object.assign || function(t) {
 const ASTTraverse_1 = require("./ASTTraverse");
 const PrettyError_1 = require("./PrettyError");
 const HeaderImport_1 = require("./HeaderImport");
+const Utils_1 = require("./Utils");
+const path = require("path");
 const acorn = require("acorn");
 const escodegen = require("escodegen");
 require("acorn-es7")(acorn);
@@ -20,6 +22,7 @@ class FileAnalysis {
         this.wasAnalysed = false;
         this.skipAnalysis = false;
         this.fuseBoxVariable = "FuseBox";
+        this.requiresRegeneration = false;
         this.dependencies = [];
     }
     astIsLoaded() {
@@ -44,6 +47,28 @@ class FileAnalysis {
         catch (err) {
             return PrettyError_1.PrettyError.errorWithContents(err, this.file);
         }
+    }
+    handleAliasReplacement(requireStatement) {
+        if (!this.file.context.experimentalAliasEnabled) {
+            return requireStatement;
+        }
+        if (this.file.collection.name !== this.file.context.defaultPackageName) {
+            return requireStatement;
+        }
+        const aliasCollection = this.file.context.aliasCollection;
+        for (let alias in aliasCollection) {
+            if (aliasCollection.hasOwnProperty(alias)) {
+                const aliasReplacement = aliasCollection[alias];
+                if (path.isAbsolute(aliasReplacement)) {
+                    this.file.context.fatal(`Can't use absolute paths with alias "${alias}"`);
+                }
+                if (requireStatement.indexOf(alias) === 0) {
+                    requireStatement = Utils_1.replaceAliasRequireStatement(requireStatement, alias, aliasReplacement);
+                    this.requiresRegeneration = true;
+                }
+            }
+        }
+        return requireStatement;
     }
     analyze() {
         if (this.wasAnalysed || this.skipAnalysis) {
@@ -106,7 +131,9 @@ class FileAnalysis {
                     if (node.callee.type === "Identifier" && node.callee.name === "require") {
                         let arg1 = node.arguments[0];
                         if (isString(arg1)) {
-                            out.requires.push(arg1.value);
+                            let requireStatement = this.handleAliasReplacement(arg1.value);
+                            arg1.value = requireStatement;
+                            out.requires.push(requireStatement);
                         }
                     }
                 }
@@ -137,6 +164,9 @@ class FileAnalysis {
             }
         }
         this.wasAnalysed = true;
+        if (this.requiresRegeneration) {
+            this.file.contents = escodegen.generate(this.ast);
+        }
     }
     removeFuseBoxApiFromBundle() {
         let ast = this.ast;

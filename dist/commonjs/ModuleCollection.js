@@ -2,6 +2,7 @@
 const File_1 = require("./File");
 const PathMaster_1 = require("./PathMaster");
 const realm_utils_1 = require("realm-utils");
+const Utils_1 = require("./Utils");
 const PrettyError = require('pretty-error');
 class ModuleCollection {
     constructor(context, name, info) {
@@ -45,6 +46,9 @@ class ModuleCollection {
         this.bundle = data;
         this.delayedResolve = true;
         this.initPlugins();
+        if (data.entry) {
+            this.entryFile = File_1.File.createByName(this, Utils_1.ensurePublicExtension(data.entry));
+        }
         return realm_utils_1.each(data.including, (withDeps, modulePath) => {
             let file = new File_1.File(this.context, this.pm.init(modulePath));
             return this.resolve(file);

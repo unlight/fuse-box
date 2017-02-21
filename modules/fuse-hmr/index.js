@@ -17,7 +17,19 @@ var customizedHMRPlugin = {
             fuse_loader_1.Loader.dynamic(path, content);
             /** Re-import / run the mainFile */
             if (fuse_loader_1.Loader.mainFile) {
-                fuse_loader_1.Loader.import(fuse_loader_1.Loader.mainFile);
+                try {
+                    fuse_loader_1.Loader.import(fuse_loader_1.Loader.mainFile);
+                }
+                catch (e) {
+                    // in case if a package was not found
+                    // It probably means that it's just not in the scope
+                    if (typeof e === "string") {
+                        if (/not found/.test(e)) {
+                            window.location.reload();
+                        }
+                    }
+                    console.error(e);
+                }
             }
             /** We don't want the default behavior */
             return true;

@@ -20,6 +20,15 @@ class File {
         }
         this.absPath = info.absPath;
     }
+    static createByName(collection, name) {
+        let info = {
+            fuseBoxPath: name,
+            absPath: name,
+        };
+        let file = new File(collection.context, info);
+        file.collection = collection;
+        return file;
+    }
     addProperty(key, obj) {
         this.properties.set(key, obj);
     }
@@ -166,7 +175,7 @@ class File {
         }
     }
     handleTypescript() {
-        const debug = (str) => this.context.debug("Typescript", str);
+        const debug = (str) => this.context.debug("TypeScript", str);
         if (this.context.useCache) {
             let cached = this.context.cache.getStaticCache(this);
             if (cached) {
@@ -198,15 +207,7 @@ class File {
         this.makeAnalysis();
         this.tryPlugins();
         if (this.context.useCache) {
-            let cachedContent = this.contents;
-            if (this.headerContent) {
-                cachedContent = this.headerContent.join("\n") + "\n" + cachedContent;
-            }
-            this.context.sourceChangedEmitter.emit({
-                type: "js",
-                content: cachedContent,
-                path: this.info.fuseBoxPath,
-            });
+            this.context.emitJavascriptHotReload(this);
             this.context.cache.writeStaticCache(this, this.sourceMap);
         }
     }

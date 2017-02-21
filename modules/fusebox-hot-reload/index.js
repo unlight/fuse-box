@@ -28,7 +28,17 @@ exports.connect = function (port) {
             FuseBox.flush();
             FuseBox.dynamic(data.path, data.content);
             if (FuseBox.mainFile) {
-                FuseBox.import(FuseBox.mainFile);
+                try {
+                    FuseBox.import(FuseBox.mainFile);
+                }
+                catch (e) {
+                    if (typeof e === "string") {
+                        if (/not found/.test(e)) {
+                            return window.location.reload();
+                        }
+                    }
+                    console.error(e);
+                }
             }
         }
         if (data.type === "css" && __fsbx_css) {

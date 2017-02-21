@@ -12,6 +12,12 @@ function contains(array, obj) {
     return array && array.indexOf(obj) > -1;
 }
 exports.contains = contains;
+function replaceAliasRequireStatement(requireStatement, aliasName, aliasReplacement) {
+    requireStatement = requireStatement.replace(aliasName, aliasReplacement);
+    requireStatement = path.normalize(requireStatement);
+    return requireStatement;
+}
+exports.replaceAliasRequireStatement = replaceAliasRequireStatement;
 function write(fileName, contents) {
     return new Promise((resolve, reject) => {
         fs.writeFile(fileName, contents, (e) => {

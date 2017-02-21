@@ -27,6 +27,7 @@ class WorkFlowContext {
         this.initialLoad = true;
         this.debugMode = false;
         this.log = new Log_1.Log(this);
+        this.experimentalAliasEnabled = false;
     }
     initCache() {
         this.cache = new ModuleCache_1.ModuleCache(this);
@@ -34,9 +35,13 @@ class WorkFlowContext {
     getHeaderImportsConfiguration() {
     }
     emitJavascriptHotReload(file) {
+        let content = file.contents;
+        if (file.headerContent) {
+            content = file.headerContent.join("\n") + "\n" + content;
+        }
         this.sourceChangedEmitter.emit({
             type: "js",
-            content: file.contents,
+            content: content,
             path: file.info.fuseBoxPath,
         });
     }
