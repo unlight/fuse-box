@@ -1,5 +1,5 @@
 const should = require('should');
-const { CSSPlugin, SassPlugin, CSSResourcePlugin } = require(`../dist/commonjs/index.js`);
+const { CSSPlugin, SassPlugin, CSSResourcePlugin, RawPlugin } = require(`../dist/commonjs/index.js`);
 const path = require("path");
 const { getTestEnv, createEnv } = require("./fixtures/lib.js")
 const fs = require("fs");
@@ -320,6 +320,25 @@ h1 {};
             done();
 
         }).catch(done)
+    });
+
+    it("Should be rawed", () => {
+        makeTestFolder();
+        return createEnv({
+            project: {
+                files: {
+                    "index.ts": `exports.style = require("./component.scss");`,
+                    "component.scss": "$c: red; h1 {color: $c}",
+                },
+                plugins: [
+                    [SassPlugin({sourceMap: false, outputStyle: 'compressed'}), RawPlugin()]
+                ],
+                instructions: "> index.ts"
+            }
+        }).then(result => {
+            const out = result.project.FuseBox.import("./index");
+            should(out.style).containEql('h1{color:red}')
+        });
     });
 
 });
